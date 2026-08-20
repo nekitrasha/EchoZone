@@ -1,14 +1,15 @@
 #include "AEZCharacter.h"
+#include "Component/UEZCharacterMovementComponent.h"
 
 #include "Camera/CameraComponent.h"
 #include "Components/SceneComponent.h"
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
-#include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/PlayerController.h"
 #include "GameFramework/SpringArmComponent.h"
 
-AEZCharacter::AEZCharacter()
+AEZCharacter::AEZCharacter(const FObjectInitializer& ObjectInitializer)
+    : Super(ObjectInitializer.SetDefaultSubobjectClass<UEZCharacterMovementComponent>(ACharacter::CharacterMovementComponentName))
 {
     PrimaryActorTick.bCanEverTick = true;
 
@@ -32,11 +33,6 @@ AEZCharacter::AEZCharacter()
     GetCharacterMovement()->RotationRate = FRotator(0.0f, 500.0f, 0.0f);
     GetCharacterMovement()->NavAgentProps.bCanCrouch = true;
 
-    GetCharacterMovement()->MaxAcceleration = MovementAcceleration;
-    GetCharacterMovement()->BrakingDecelerationWalking = MovementDeceleration;
-    GetCharacterMovement()->GroundFriction = GroundFriction;
-
-    CurrentWalkSpeedStepIndex = DefaultWalkSpeedStepIndex;
     TargetViewZ = StandingViewZ;
 }
 
@@ -66,7 +62,13 @@ void AEZCharacter::BeginPlay()
         ViewRootComponent->SetRelativeLocation(RelativeLocation);
     }
 
-    UpdateMovementSettings();
+    UpdateLeanState();
+    UpdateMovementBlockers();
+
+    if (UEZCharacterMovementComponent* EZMoveComp = GetUEZMovementComponent())
+    {
+        EZMoveComp->RefreshMovementSettings();
+    }
 }
 
 void AEZCharacter::Tick(float DeltaTime)
@@ -75,7 +77,6 @@ void AEZCharacter::Tick(float DeltaTime)
 
     UpdateFreeLook(DeltaTime);
     UpdateView(DeltaTime);
-    UpdateMovementSettings();
 }
 
 void AEZCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
@@ -143,9 +144,19 @@ void AEZCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCompone
     }
 }
 
+UEZCharacterMovementComponent* AEZCharacter::GetUEZMovementComponent() const
+{
+    return Cast<UEZCharacterMovementComponent>(GetCharacterMovement());
+}
+
 void AEZCharacter::Move(const FInputActionValue& Value)
 {
-    CurrentMoveInput = Value.Get<FVector2D>();
+    const FVector2D MoveInput = Value.Get<FVector2D>();
+
+    if (UEZCharacterMovementComponent* EZMoveComp = GetUEZMovementComponent())
+    {
+        EZMoveComp->SetMoveInput(MoveInput);
+    }
 
     if (!Controller)
     {
@@ -158,8 +169,8 @@ void AEZCharacter::Move(const FInputActionValue& Value)
     const FVector ForwardDirection = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::X);
     const FVector RightDirection = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::Y);
 
-    AddMovementInput(ForwardDirection, CurrentMoveInput.Y);
-    AddMovementInput(RightDirection, CurrentMoveInput.X);
+    AddMovementInput(ForwardDirection, MoveInput.Y);
+    AddMovementInput(RightDirection, MoveInput.X);
 }
 
 void AEZCharacter::Look(const FInputActionValue& Value)
@@ -170,7 +181,6 @@ void AEZCharacter::Look(const FInputActionValue& Value)
     {
         FreeLookYaw = FMath::Clamp(FreeLookYaw + LookAxis.X, -FreeLookYawLimit, FreeLookYawLimit);
         FreeLookPitch = FMath::Clamp(FreeLookPitch + LookAxis.Y, -FreeLookPitchDownLimit, FreeLookPitchUpLimit);
-        CancelSprint();
     }
     else
     {
@@ -181,29 +191,30 @@ void AEZCharacter::Look(const FInputActionValue& Value)
 
 void AEZCharacter::StartSprint()
 {
-    if (!CanSprint())
+    if (UEZCharacterMovementComponent* EZMoveComp = GetUEZMovementComponent())
     {
-        return;
+        EZMoveComp->SetSprintIntent(true);
     }
-
-    bWantsToSprint = true;
-    UpdateMovementSettings();
 }
 
 void AEZCharacter::StopSprint()
 {
-    bWantsToSprint = false;
-    UpdateMovementSettings();
+    if (UEZCharacterMovementComponent* EZMoveComp = GetUEZMovementComponent())
+    {
+        EZMoveComp->SetSprintIntent(false);
+    }
 }
 
 void AEZCharacter::StartCrouch()
 {
-    CancelSprint();
+    if (UEZCharacterMovementComponent* EZMoveComp = GetUEZMovementComponent())
+    {
+        EZMoveComp->SetSprintIntent(false);
+    }
 
     if (!bIsCrouched)
     {
         Crouch();
-        UpdateMovementSettings();
     }
 }
 
@@ -212,370 +223,137 @@ void AEZCharacter::StopCrouch()
     if (bIsCrouched)
     {
         UnCrouch();
-        UpdateMovementSettings();
     }
 }
 
 void AEZCharacter::StartLeanLeft()
 {
-    CancelSprint();
+    bIsLeaningLeft = true;
+    bIsLeaningRight = false;
 
-    TargetLeanRoll = -LeanAngle;
-    TargetLeanOffsetY = -LeanOffset;
+    if (UEZCharacterMovementComponent* EZMoveComp = GetUEZMovementComponent())
+    {
+        EZMoveComp->SetSprintIntent(false);
+    }
+
+    UpdateLeanState();
+    UpdateMovementBlockers();
 }
 
 void AEZCharacter::StopLeanLeft()
 {
-    if (TargetLeanRoll < 0.0f)
-    {
-        TargetLeanRoll = 0.0f;
-    }
+    bIsLeaningLeft = false;
 
-    if (TargetLeanOffsetY < 0.0f)
-    {
-        TargetLeanOffsetY = 0.0f;
-    }
+    UpdateLeanState();
+    UpdateMovementBlockers();
 }
 
 void AEZCharacter::StartLeanRight()
 {
-    CancelSprint();
+    bIsLeaningRight = true;
+    bIsLeaningLeft = false;
 
-    TargetLeanRoll = LeanAngle;
-    TargetLeanOffsetY = LeanOffset;
+    if (UEZCharacterMovementComponent* EZMoveComp = GetUEZMovementComponent())
+    {
+        EZMoveComp->SetSprintIntent(false);
+    }
+
+    UpdateLeanState();
+    UpdateMovementBlockers();
 }
 
 void AEZCharacter::StopLeanRight()
 {
-    if (TargetLeanRoll > 0.0f)
-    {
-        TargetLeanRoll = 0.0f;
-    }
+    bIsLeaningRight = false;
 
-    if (TargetLeanOffsetY > 0.0f)
-    {
-        TargetLeanOffsetY = 0.0f;
-    }
+    UpdateLeanState();
+    UpdateMovementBlockers();
 }
 
 void AEZCharacter::StartFreeLook()
 {
     bIsFreeLooking = true;
-    CancelSprint();
+
+    if (UEZCharacterMovementComponent* EZMoveComp = GetUEZMovementComponent())
+    {
+        EZMoveComp->SetSprintIntent(false);
+    }
+
+    UpdateMovementBlockers();
 }
 
 void AEZCharacter::StopFreeLook()
 {
     bIsFreeLooking = false;
+    UpdateMovementBlockers();
 }
 
 void AEZCharacter::IncreaseWalkSpeedStep()
 {
-    if (WalkSpeedSteps.Num() == 0)
+    if (UEZCharacterMovementComponent* EZMoveComp = GetUEZMovementComponent())
     {
-        return;
+        EZMoveComp->IncreaseWalkSpeedStep();
     }
-
-    CurrentWalkSpeedStepIndex = FMath::Clamp(CurrentWalkSpeedStepIndex + 1, 0, WalkSpeedSteps.Num() - 1);
-    UpdateMovementSettings();
 }
 
 void AEZCharacter::DecreaseWalkSpeedStep()
 {
-    if (WalkSpeedSteps.Num() == 0)
+    if (UEZCharacterMovementComponent* EZMoveComp = GetUEZMovementComponent())
     {
-        return;
+        EZMoveComp->DecreaseWalkSpeedStep();
     }
-
-    CurrentWalkSpeedStepIndex = FMath::Clamp(CurrentWalkSpeedStepIndex - 1, 0, WalkSpeedSteps.Num() - 1);
-    UpdateMovementSettings();
 }
 
 void AEZCharacter::OnStartCrouch(float HalfHeightAdjust, float ScaledHalfHeightAdjust)
 {
     Super::OnStartCrouch(HalfHeightAdjust, ScaledHalfHeightAdjust);
+
     TargetViewZ = CrouchedViewZ;
+
+    if (UEZCharacterMovementComponent* EZMoveComp = GetUEZMovementComponent())
+    {
+        EZMoveComp->RefreshMovementSettings();
+    }
 }
 
 void AEZCharacter::OnEndCrouch(float HalfHeightAdjust, float ScaledHalfHeightAdjust)
 {
     Super::OnEndCrouch(HalfHeightAdjust, ScaledHalfHeightAdjust);
+
     TargetViewZ = StandingViewZ;
-}
 
-float AEZCharacter::GetCurrentWalkStepMultiplier() const
-{
-    if (WalkSpeedSteps.IsValidIndex(CurrentWalkSpeedStepIndex))
+    if (UEZCharacterMovementComponent* EZMoveComp = GetUEZMovementComponent())
     {
-        return WalkSpeedSteps[CurrentWalkSpeedStepIndex];
-    }
-
-    return 1.0f;
-}
-
-bool AEZCharacter::IsTryingToMoveForwardOnly() const
-{
-    const bool bForward = CurrentMoveInput.Y > 0.1f;
-    const bool bSide = FMath::Abs(CurrentMoveInput.X) > 0.1f;
-    const bool bBackward = CurrentMoveInput.Y < -0.1f;
-
-    return bForward && !bSide && !bBackward;
-}
-
-float AEZCharacter::GetCurrentGroundAngleDegrees() const
-{
-    const UCharacterMovementComponent* MoveComp = GetCharacterMovement();
-    if (!MoveComp || !MoveComp->IsMovingOnGround())
-    {
-        return 0.0f;
-    }
-
-    const FFindFloorResult& FloorResult = MoveComp->CurrentFloor;
-    if (!FloorResult.bBlockingHit)
-    {
-        return 0.0f;
-    }
-
-    const FVector FloorNormal = FloorResult.HitResult.ImpactNormal.GetSafeNormal();
-    if (FloorNormal.IsNearlyZero())
-    {
-        return 0.0f;
-    }
-
-    const float DotUp = FVector::DotProduct(FloorNormal, FVector::UpVector);
-    return FMath::RadiansToDegrees(FMath::Acos(FMath::Clamp(DotUp, -1.0f, 1.0f)));
-}
-
-bool AEZCharacter::CanSprint() const
-{
-    if (bIsCrouched)
-    {
-        return false;
-    }
-
-    if (bIsFreeLooking)
-    {
-        return false;
-    }
-
-    const UCharacterMovementComponent* MoveComp = GetCharacterMovement();
-    if (!MoveComp || !MoveComp->IsMovingOnGround())
-    {
-        return false;
-    }
-
-    if (!IsTryingToMoveForwardOnly())
-    {
-        return false;
-    }
-
-    if (SprintMaxAllowedSlopeAngle > 0.0f)
-    {
-        if (GetCurrentGroundAngleDegrees() > SprintMaxAllowedSlopeAngle)
-        {
-            return false;
-        }
-    }
-
-    return true;
-}
-
-void AEZCharacter::CancelSprint()
-{
-    if (bWantsToSprint)
-    {
-        bWantsToSprint = false;
-        UpdateMovementSettings();
+        EZMoveComp->RefreshMovementSettings();
     }
 }
 
-float AEZCharacter::CalculateSlopeSpeedMultiplier() const
+void AEZCharacter::UpdateLeanState()
 {
-    if (!bUseSlopeSpeedModifier)
+    if (bIsLeaningLeft && !bIsLeaningRight)
     {
-        return 1.0f;
+        TargetLeanRoll = -LeanAngle;
+        TargetLeanOffsetY = -LeanOffset;
     }
-
-    const UCharacterMovementComponent* MoveComp = GetCharacterMovement();
-    if (!MoveComp || !MoveComp->IsMovingOnGround())
+    else if (bIsLeaningRight && !bIsLeaningLeft)
     {
-        return 1.0f;
+        TargetLeanRoll = LeanAngle;
+        TargetLeanOffsetY = LeanOffset;
     }
-
-    if (CurrentMoveInput.IsNearlyZero())
+    else
     {
-        return 1.0f;
+        TargetLeanRoll = 0.0f;
+        TargetLeanOffsetY = 0.0f;
     }
-
-    const FFindFloorResult& FloorResult = MoveComp->CurrentFloor;
-    if (!FloorResult.bBlockingHit)
-    {
-        return 1.0f;
-    }
-
-    const FVector FloorNormal = FloorResult.HitResult.ImpactNormal.GetSafeNormal();
-    if (FloorNormal.IsNearlyZero())
-    {
-        return 1.0f;
-    }
-
-    const float DotUp = FVector::DotProduct(FloorNormal, FVector::UpVector);
-    const float GroundAngleDeg = FMath::RadiansToDegrees(FMath::Acos(FMath::Clamp(DotUp, -1.0f, 1.0f)));
-
-    if (GroundAngleDeg <= SlopeEffectDeadZoneAngle)
-    {
-        return 1.0f;
-    }
-
-    const FVector Forward = GetActorForwardVector();
-    const FVector Right = GetActorRightVector();
-
-    FVector DesiredMoveDirection = (Forward * CurrentMoveInput.Y + Right * CurrentMoveInput.X);
-    DesiredMoveDirection.Z = 0.0f;
-    DesiredMoveDirection = DesiredMoveDirection.GetSafeNormal();
-
-    if (DesiredMoveDirection.IsNearlyZero())
-    {
-        return 1.0f;
-    }
-
-    FVector DownhillDirection = FVector::VectorPlaneProject(FVector::DownVector, FloorNormal);
-    DownhillDirection.Z = 0.0f;
-    DownhillDirection = DownhillDirection.GetSafeNormal();
-
-    if (DownhillDirection.IsNearlyZero())
-    {
-        return 1.0f;
-    }
-
-    // +1 = вниз, -1 = вверх, 0 = поперек
-    const float AlignmentToDownhill = FVector::DotProduct(DesiredMoveDirection, DownhillDirection);
-
-    // Чем ближе движение к чистому вверх/вниз, тем сильнее влияние уклона
-    const float DirectionInfluence = FMath::Lerp(CrossSlopeInfluence, 1.0f, FMath::Abs(AlignmentToDownhill));
-
-    // Движение вверх
-    if (AlignmentToDownhill < -0.05f)
-    {
-        const bool bSprintActive = bWantsToSprint && CanSprint();
-
-        const float MaxAngle = bSprintActive ? MaxUphillAngleSprint : MaxUphillAngleWalk;
-        const float MinMultiplier = bSprintActive ? MinSprintUphillSpeedMultiplier : MinWalkUphillSpeedMultiplier;
-
-        const float AngleAlpha = FMath::Clamp(
-            (GroundAngleDeg - SlopeEffectDeadZoneAngle) / FMath::Max(MaxAngle - SlopeEffectDeadZoneAngle, 1.0f),
-            0.0f,
-            1.0f
-        );
-
-        const float UphillMultiplier = FMath::Lerp(1.0f, MinMultiplier, AngleAlpha);
-        const float FinalAlpha = AngleAlpha * DirectionInfluence;
-
-        return FMath::Lerp(1.0f, UphillMultiplier, FinalAlpha);
-    }
-
-    // Движение вниз
-    if (AlignmentToDownhill > 0.05f)
-    {
-        const float AngleAlpha = FMath::Clamp(
-            (GroundAngleDeg - SlopeEffectDeadZoneAngle) / FMath::Max(MaxDownhillAngle - SlopeEffectDeadZoneAngle, 1.0f),
-            0.0f,
-            1.0f
-        );
-
-        const float DownhillMultiplier = FMath::Lerp(1.0f, MaxDownhillSpeedMultiplier, AngleAlpha);
-        const float FinalAlpha = AngleAlpha * DirectionInfluence;
-
-        return FMath::Lerp(1.0f, DownhillMultiplier, FinalAlpha);
-    }
-
-    return 1.0f;
 }
 
-float AEZCharacter::CalculateCurrentMaxSpeed() const
+void AEZCharacter::UpdateMovementBlockers()
 {
-    float BaseSpeed = ForwardWalkSpeed * GetCurrentWalkStepMultiplier();
-
-    const bool bForward = CurrentMoveInput.Y > 0.1f;
-    const bool bSide = FMath::Abs(CurrentMoveInput.X) > 0.1f;
-    const bool bBackward = CurrentMoveInput.Y < -0.1f;
-
-    if (bWantsToSprint && CanSprint())
+    if (UEZCharacterMovementComponent* EZMoveComp = GetUEZMovementComponent())
     {
-        BaseSpeed = SprintForwardSpeed;
+        EZMoveComp->SetSprintBlockedByFreeLook(bIsFreeLooking);
+        EZMoveComp->SetSprintBlockedByLean(bIsLeaningLeft || bIsLeaningRight);
     }
-
-    if (bIsCrouched)
-    {
-        BaseSpeed *= CrouchSpeedMultiplier;
-    }
-
-    float DirectionMultiplier = 1.0f;
-
-    if (bBackward)
-    {
-        DirectionMultiplier = BackwardSpeedMultiplier;
-    }
-    else if (bSide && !bForward)
-    {
-        DirectionMultiplier = SidewaysSpeedMultiplier;
-    }
-    else if (bForward && bSide)
-    {
-        DirectionMultiplier = SidewaysSpeedMultiplier;
-    }
-
-    const float SlopeMultiplier = CalculateSlopeSpeedMultiplier();
-
-    return BaseSpeed * DirectionMultiplier * SlopeMultiplier;
-}
-
-void AEZCharacter::UpdateMovementSettings()
-{
-    UCharacterMovementComponent* MoveComp = GetCharacterMovement();
-    if (!MoveComp)
-    {
-        return;
-    }
-
-    if (bWantsToSprint && !CanSprint())
-    {
-        bWantsToSprint = false;
-    }
-
-    const float SlopeMultiplier = CalculateSlopeSpeedMultiplier();
-
-    float NewAcceleration = MovementAcceleration;
-    float NewDeceleration = MovementDeceleration;
-
-    if (bUseSlopeAccelerationModifier)
-    {
-        if (SlopeMultiplier < 1.0f)
-        {
-            const float UphillAccelFactor = FMath::Lerp(
-                MinUphillAccelerationMultiplier,
-                1.0f,
-                FMath::Clamp((SlopeMultiplier - MinSprintUphillSpeedMultiplier) / FMath::Max(1.0f - MinSprintUphillSpeedMultiplier, 0.01f), 0.0f, 1.0f)
-            );
-
-            NewAcceleration *= UphillAccelFactor;
-        }
-        else if (SlopeMultiplier > 1.0f)
-        {
-            const float DownhillDecelFactor = FMath::Clamp(
-                2.0f - SlopeMultiplier,
-                MinDownhillDecelerationMultiplier,
-                1.0f
-            );
-
-            NewDeceleration *= DownhillDecelFactor;
-        }
-    }
-
-    MoveComp->MaxAcceleration = NewAcceleration;
-    MoveComp->BrakingDecelerationWalking = NewDeceleration;
-    MoveComp->GroundFriction = GroundFriction;
-    MoveComp->MaxWalkSpeed = CalculateCurrentMaxSpeed();
 }
 
 void AEZCharacter::UpdateView(float DeltaTime)
@@ -585,8 +363,8 @@ void AEZCharacter::UpdateView(float DeltaTime)
         return;
     }
 
-    FVector CurrentLocation = ViewRootComponent->GetRelativeLocation();
-    FRotator CurrentRotation = ViewRootComponent->GetRelativeRotation();
+    const FVector CurrentLocation = ViewRootComponent->GetRelativeLocation();
+    const FRotator CurrentRotation = ViewRootComponent->GetRelativeRotation();
 
     const FVector TargetLocation(0.0f, TargetLeanOffsetY, TargetViewZ);
     const FRotator TargetRotation(0.0f, FreeLookYaw, TargetLeanRoll);
