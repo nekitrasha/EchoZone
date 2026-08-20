@@ -1,5 +1,6 @@
 #include "AEZCharacter.h"
 #include "Component/UEZCharacterMovementComponent.h"
+#include "Component/UEZStaminaComponent.h"
 
 #include "Camera/CameraComponent.h"
 #include "Components/SceneComponent.h"
@@ -24,6 +25,8 @@ AEZCharacter::AEZCharacter(const FObjectInitializer& ObjectInitializer)
     CameraComponent = CreateDefaultSubobject<UCameraComponent>(TEXT("Camera"));
     CameraComponent->SetupAttachment(ViewRootComponent);
     CameraComponent->bUsePawnControlRotation = false;
+
+    StaminaComponent = CreateDefaultSubobject<UEZStaminaComponent>(TEXT("StaminaComponent"));
 
     bUseControllerRotationPitch = false;
     bUseControllerRotationYaw = true;
@@ -63,7 +66,7 @@ void AEZCharacter::BeginPlay()
     }
 
     UpdateLeanState();
-    UpdateMovementBlockers();
+    UpdateMovementFlags();
 
     if (UEZCharacterMovementComponent* EZMoveComp = GetUEZMovementComponent())
     {
@@ -237,15 +240,14 @@ void AEZCharacter::StartLeanLeft()
     }
 
     UpdateLeanState();
-    UpdateMovementBlockers();
+    UpdateMovementFlags();
 }
 
 void AEZCharacter::StopLeanLeft()
 {
     bIsLeaningLeft = false;
-
     UpdateLeanState();
-    UpdateMovementBlockers();
+    UpdateMovementFlags();
 }
 
 void AEZCharacter::StartLeanRight()
@@ -259,15 +261,14 @@ void AEZCharacter::StartLeanRight()
     }
 
     UpdateLeanState();
-    UpdateMovementBlockers();
+    UpdateMovementFlags();
 }
 
 void AEZCharacter::StopLeanRight()
 {
     bIsLeaningRight = false;
-
     UpdateLeanState();
-    UpdateMovementBlockers();
+    UpdateMovementFlags();
 }
 
 void AEZCharacter::StartFreeLook()
@@ -279,13 +280,13 @@ void AEZCharacter::StartFreeLook()
         EZMoveComp->SetSprintIntent(false);
     }
 
-    UpdateMovementBlockers();
+    UpdateMovementFlags();
 }
 
 void AEZCharacter::StopFreeLook()
 {
     bIsFreeLooking = false;
-    UpdateMovementBlockers();
+    UpdateMovementFlags();
 }
 
 void AEZCharacter::IncreaseWalkSpeedStep()
@@ -312,6 +313,7 @@ void AEZCharacter::OnStartCrouch(float HalfHeightAdjust, float ScaledHalfHeightA
 
     if (UEZCharacterMovementComponent* EZMoveComp = GetUEZMovementComponent())
     {
+        EZMoveComp->SetLocomotionStance(ELocomotionStance::Crouched);
         EZMoveComp->RefreshMovementSettings();
     }
 }
@@ -324,6 +326,7 @@ void AEZCharacter::OnEndCrouch(float HalfHeightAdjust, float ScaledHalfHeightAdj
 
     if (UEZCharacterMovementComponent* EZMoveComp = GetUEZMovementComponent())
     {
+        EZMoveComp->SetLocomotionStance(ELocomotionStance::Standing);
         EZMoveComp->RefreshMovementSettings();
     }
 }
@@ -347,12 +350,12 @@ void AEZCharacter::UpdateLeanState()
     }
 }
 
-void AEZCharacter::UpdateMovementBlockers()
+void AEZCharacter::UpdateMovementFlags()
 {
     if (UEZCharacterMovementComponent* EZMoveComp = GetUEZMovementComponent())
     {
-        EZMoveComp->SetSprintBlockedByFreeLook(bIsFreeLooking);
-        EZMoveComp->SetSprintBlockedByLean(bIsLeaningLeft || bIsLeaningRight);
+        EZMoveComp->SetMovementBlockFlag(EMovementBlockFlags::FreeLook, bIsFreeLooking);
+        EZMoveComp->SetMovementBlockFlag(EMovementBlockFlags::Lean, bIsLeaningLeft || bIsLeaningRight);
     }
 }
 

@@ -4,6 +4,27 @@
 #include "GameFramework/CharacterMovementComponent.h"
 #include "UEZCharacterMovementComponent.generated.h"
 
+UENUM(BlueprintType)
+enum class ELocomotionStance : uint8
+{
+    Standing UMETA(DisplayName = "Standing"),
+    Crouched UMETA(DisplayName = "Crouched")
+};
+
+UENUM(BlueprintType, meta = (Bitflags))
+enum class EMovementBlockFlags : uint8
+{
+    None = 0         UMETA(Hidden),
+    FreeLook = 1 << 0,
+    Lean = 1 << 1,
+    Vault = 1 << 2,
+    Stamina = 1 << 3,
+    Aiming = 1 << 4,
+    External = 1 << 5
+};
+
+ENUM_CLASS_FLAGS(EMovementBlockFlags)
+
 UCLASS()
 class ECHOZONE_API UEZCharacterMovementComponent : public UCharacterMovementComponent
 {
@@ -24,16 +45,23 @@ public:
     bool IsSprintRequested() const { return bWantsToSprint; }
     bool IsSprintActive() const;
 
-    void SetSprintBlockedByFreeLook(bool bBlocked);
-    void SetSprintBlockedByLean(bool bBlocked);
-    void SetSprintBlockedByExternalState(bool bBlocked);
-
     void IncreaseWalkSpeedStep();
     void DecreaseWalkSpeedStep();
+
+    void SetLocomotionStance(ELocomotionStance NewStance);
+    ELocomotionStance GetLocomotionStance() const { return CurrentStance; }
+
+    void AddMovementBlockFlag(EMovementBlockFlags Flag);
+    void RemoveMovementBlockFlag(EMovementBlockFlags Flag);
+    void SetMovementBlockFlag(EMovementBlockFlags Flag, bool bEnabled);
+    bool HasMovementBlockFlag(EMovementBlockFlags Flag) const;
 
     bool CanSprint() const;
     float GetCurrentGroundAngleDegrees() const;
     float CalculateSlopeSpeedMultiplier() const;
+    float GetCurrentWalkStepMultiplier() const;
+    float CalculateDirectionalSpeedMultiplier() const;
+
     void RefreshMovementSettings();
 
 protected:
@@ -105,7 +133,9 @@ protected:
 
     UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Tactical Movement|Sprint")
     float SprintMaxAllowedSlopeAngle = 0.0f;
-    // 0 = disabled
+
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Tactical Movement|Debug")
+    bool bEnableMovementDebug = false;
 
 protected:
     UPROPERTY(Transient)
@@ -115,21 +145,19 @@ protected:
     bool bWantsToSprint = false;
 
     UPROPERTY(Transient)
-    bool bSprintBlockedByFreeLook = false;
-
-    UPROPERTY(Transient)
-    bool bSprintBlockedByLean = false;
-
-    UPROPERTY(Transient)
-    bool bSprintBlockedByExternalState = false;
-
-    UPROPERTY(Transient)
     int32 CurrentWalkSpeedStepIndex = 4;
 
+    UPROPERTY(Transient)
+    ELocomotionStance CurrentStance = ELocomotionStance::Standing;
+
+    UPROPERTY(Transient)
+    EMovementBlockFlags MovementBlockFlags = EMovementBlockFlags::None;
+
 protected:
-    float GetCurrentWalkStepMultiplier() const;
-    float CalculateDirectionalSpeedMultiplier() const;
     bool IsTryingToMoveForwardOnly() const;
-    bool IsOwnerCrouched() const;
     bool IsSprintBlocked() const;
+    bool IsOwnerActuallyCrouched() const;
+    FString GetMovementBlockFlagsString() const;
+    FString GetStanceString() const;
+    void DrawMovementDebug() const;
 };

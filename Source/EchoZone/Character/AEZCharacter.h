@@ -11,6 +11,7 @@ class USceneComponent;
 class UInputMappingContext;
 class UInputAction;
 class UEZCharacterMovementComponent;
+class UEZStaminaComponent;
 
 UCLASS()
 class ECHOZONE_API AEZCharacter : public ACharacter
@@ -22,12 +23,11 @@ public:
 
 protected:
     virtual void BeginPlay() override;
+    virtual void Tick(float DeltaTime) override;
     virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 
     virtual void OnStartCrouch(float HalfHeightAdjust, float ScaledHalfHeightAdjust) override;
     virtual void OnEndCrouch(float HalfHeightAdjust, float ScaledHalfHeightAdjust) override;
-
-    virtual void Tick(float DeltaTime) override;
 
 protected:
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
@@ -38,6 +38,9 @@ protected:
 
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
     UCameraComponent* CameraComponent;
+
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
+    UEZStaminaComponent* StaminaComponent;
 
     UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
     UInputMappingContext* DefaultMappingContext;
@@ -149,7 +152,7 @@ protected:
     void UpdateView(float DeltaTime);
     void UpdateFreeLook(float DeltaTime);
     void UpdateLeanState();
-    void UpdateMovementBlockers();
+    void UpdateMovementFlags();
 
     UEZCharacterMovementComponent* GetUEZMovementComponent() const;
 };

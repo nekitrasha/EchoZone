@@ -1,5 +1,6 @@
 #include "UEZCharacterMovementComponent.h"
 
+#include "Engine/Engine.h"
 #include "GameFramework/Character.h"
 
 UEZCharacterMovementComponent::UEZCharacterMovementComponent()
@@ -12,6 +13,8 @@ void UEZCharacterMovementComponent::BeginPlay()
     Super::BeginPlay();
 
     CurrentWalkSpeedStepIndex = FMath::Clamp(DefaultWalkSpeedStepIndex, 0, WalkSpeedSteps.Num() - 1);
+    CurrentStance = IsOwnerActuallyCrouched() ? ELocomotionStance::Crouched : ELocomotionStance::Standing;
+
     RefreshMovementSettings();
 }
 
@@ -20,6 +23,11 @@ void UEZCharacterMovementComponent::OnMovementUpdated(float DeltaSeconds, const 
     Super::OnMovementUpdated(DeltaSeconds, OldLocation, OldVelocity);
 
     RefreshMovementSettings();
+
+    if (bEnableMovementDebug)
+    {
+        DrawMovementDebug();
+    }
 }
 
 void UEZCharacterMovementComponent::SetMoveInput(const FVector2D& NewMoveInput)
@@ -32,42 +40,6 @@ void UEZCharacterMovementComponent::SetSprintIntent(bool bEnabled)
     bWantsToSprint = bEnabled;
 
     if (bWantsToSprint && !CanSprint())
-    {
-        bWantsToSprint = false;
-    }
-
-    RefreshMovementSettings();
-}
-
-void UEZCharacterMovementComponent::SetSprintBlockedByFreeLook(bool bBlocked)
-{
-    bSprintBlockedByFreeLook = bBlocked;
-
-    if (bBlocked && bWantsToSprint)
-    {
-        bWantsToSprint = false;
-    }
-
-    RefreshMovementSettings();
-}
-
-void UEZCharacterMovementComponent::SetSprintBlockedByLean(bool bBlocked)
-{
-    bSprintBlockedByLean = bBlocked;
-
-    if (bBlocked && bWantsToSprint)
-    {
-        bWantsToSprint = false;
-    }
-
-    RefreshMovementSettings();
-}
-
-void UEZCharacterMovementComponent::SetSprintBlockedByExternalState(bool bBlocked)
-{
-    bSprintBlockedByExternalState = bBlocked;
-
-    if (bBlocked && bWantsToSprint)
     {
         bWantsToSprint = false;
     }
@@ -97,7 +69,48 @@ void UEZCharacterMovementComponent::DecreaseWalkSpeedStep()
     RefreshMovementSettings();
 }
 
-bool UEZCharacterMovementComponent::IsOwnerCrouched() const
+void UEZCharacterMovementComponent::SetLocomotionStance(ELocomotionStance NewStance)
+{
+    CurrentStance = NewStance;
+    RefreshMovementSettings();
+}
+
+void UEZCharacterMovementComponent::AddMovementBlockFlag(EMovementBlockFlags Flag)
+{
+    MovementBlockFlags |= Flag;
+
+    if (bWantsToSprint && !CanSprint())
+    {
+        bWantsToSprint = false;
+    }
+
+    RefreshMovementSettings();
+}
+
+void UEZCharacterMovementComponent::RemoveMovementBlockFlag(EMovementBlockFlags Flag)
+{
+    MovementBlockFlags &= ~Flag;
+    RefreshMovementSettings();
+}
+
+void UEZCharacterMovementComponent::SetMovementBlockFlag(EMovementBlockFlags Flag, bool bEnabled)
+{
+    if (bEnabled)
+    {
+        AddMovementBlockFlag(Flag);
+    }
+    else
+    {
+        RemoveMovementBlockFlag(Flag);
+    }
+}
+
+bool UEZCharacterMovementComponent::HasMovementBlockFlag(EMovementBlockFlags Flag) const
+{
+    return EnumHasAnyFlags(MovementBlockFlags, Flag);
+}
+
+bool UEZCharacterMovementComponent::IsOwnerActuallyCrouched() const
 {
     const ACharacter* CharacterOwnerPtr = CharacterOwner.Get();
     return CharacterOwnerPtr && CharacterOwnerPtr->bIsCrouched;
@@ -105,7 +118,15 @@ bool UEZCharacterMovementComponent::IsOwnerCrouched() const
 
 bool UEZCharacterMovementComponent::IsSprintBlocked() const
 {
-    return bSprintBlockedByFreeLook || bSprintBlockedByLean || bSprintBlockedByExternalState;
+    return EnumHasAnyFlags(
+        MovementBlockFlags,
+        EMovementBlockFlags::FreeLook |
+        EMovementBlockFlags::Lean |
+        EMovementBlockFlags::Vault |
+        EMovementBlockFlags::Stamina |
+        EMovementBlockFlags::Aiming |
+        EMovementBlockFlags::External
+    );
 }
 
 bool UEZCharacterMovementComponent::IsTryingToMoveForwardOnly() const
@@ -129,7 +150,7 @@ bool UEZCharacterMovementComponent::CanSprint() const
         return false;
     }
 
-    if (IsOwnerCrouched())
+    if (IsOwnerActuallyCrouched() || CurrentStance == ELocomotionStance::Crouched)
     {
         return false;
     }
@@ -159,12 +180,7 @@ bool UEZCharacterMovementComponent::IsSprintActive() const
 
 float UEZCharacterMovementComponent::GetCurrentGroundAngleDegrees() const
 {
-    if (!IsMovingOnGround())
-    {
-        return 0.0f;
-    }
-
-    if (!CurrentFloor.bBlockingHit)
+    if (!IsMovingOnGround() || !CurrentFloor.bBlockingHit)
     {
         return 0.0f;
     }
@@ -220,17 +236,7 @@ float UEZCharacterMovementComponent::CalculateSlopeSpeedMultiplier() const
         return 1.0f;
     }
 
-    if (!IsMovingOnGround())
-    {
-        return 1.0f;
-    }
-
-    if (CurrentMoveInput.IsNearlyZero())
-    {
-        return 1.0f;
-    }
-
-    if (!CurrentFloor.bBlockingHit)
+    if (!IsMovingOnGround() || CurrentMoveInput.IsNearlyZero() || !CurrentFloor.bBlockingHit || !CharacterOwner)
     {
         return 1.0f;
     }
@@ -245,11 +251,6 @@ float UEZCharacterMovementComponent::CalculateSlopeSpeedMultiplier() const
     const float GroundAngleDeg = FMath::RadiansToDegrees(FMath::Acos(FMath::Clamp(DotUp, -1.0f, 1.0f)));
 
     if (GroundAngleDeg <= SlopeEffectDeadZoneAngle)
-    {
-        return 1.0f;
-    }
-
-    if (!CharacterOwner)
     {
         return 1.0f;
     }
@@ -275,16 +276,12 @@ float UEZCharacterMovementComponent::CalculateSlopeSpeedMultiplier() const
         return 1.0f;
     }
 
-    // +1 = moving downhill, -1 = moving uphill, 0 = cross-slope
     const float AlignmentToDownhill = FVector::DotProduct(DesiredMoveDirection, DownhillDirection);
-
-    // Less effect when moving more sideways across the slope
     const float DirectionInfluence = FMath::Lerp(CrossSlopeInfluence, 1.0f, FMath::Abs(AlignmentToDownhill));
 
     if (AlignmentToDownhill < -0.05f)
     {
         const bool bSprintActive = IsSprintActive();
-
         const float MaxAngle = bSprintActive ? MaxUphillAngleSprint : MaxUphillAngleWalk;
         const float MinMultiplier = bSprintActive ? MinSprintUphillSpeedMultiplier : MinWalkUphillSpeedMultiplier;
 
@@ -326,7 +323,7 @@ float UEZCharacterMovementComponent::GetMaxSpeed() const
         BaseSpeed = SprintForwardSpeed;
     }
 
-    if (IsOwnerCrouched())
+    if (IsOwnerActuallyCrouched() || CurrentStance == ELocomotionStance::Crouched)
     {
         BaseSpeed *= CrouchSpeedMultiplier;
     }
@@ -340,6 +337,11 @@ float UEZCharacterMovementComponent::GetMaxSpeed() const
 float UEZCharacterMovementComponent::GetMaxAcceleration() const
 {
     float Result = BaseMovementAcceleration;
+
+    if (CurrentStance == ELocomotionStance::Crouched || IsOwnerActuallyCrouched())
+    {
+        Result *= 0.8f;
+    }
 
     if (!bUseSlopeAccelerationModifier)
     {
@@ -368,6 +370,8 @@ float UEZCharacterMovementComponent::GetMaxAcceleration() const
 
 void UEZCharacterMovementComponent::RefreshMovementSettings()
 {
+    CurrentStance = IsOwnerActuallyCrouched() ? ELocomotionStance::Crouched : ELocomotionStance::Standing;
+
     if (bWantsToSprint && !CanSprint())
     {
         bWantsToSprint = false;
@@ -377,6 +381,11 @@ void UEZCharacterMovementComponent::RefreshMovementSettings()
     MaxAcceleration = GetMaxAcceleration();
 
     float NewDeceleration = BaseMovementDeceleration;
+
+    if (CurrentStance == ELocomotionStance::Crouched || IsOwnerActuallyCrouched())
+    {
+        NewDeceleration *= 0.9f;
+    }
 
     if (bUseSlopeAccelerationModifier)
     {
@@ -396,4 +405,71 @@ void UEZCharacterMovementComponent::RefreshMovementSettings()
 
     BrakingDecelerationWalking = NewDeceleration;
     GroundFriction = BaseGroundFriction;
+}
+
+FString UEZCharacterMovementComponent::GetStanceString() const
+{
+    switch (CurrentStance)
+    {
+    case ELocomotionStance::Standing: return TEXT("Standing");
+    case ELocomotionStance::Crouched: return TEXT("Crouched");
+    default:                          return TEXT("Unknown");
+    }
+}
+
+FString UEZCharacterMovementComponent::GetMovementBlockFlagsString() const
+{
+    TArray<FString> Names;
+
+    if (HasMovementBlockFlag(EMovementBlockFlags::FreeLook)) Names.Add(TEXT("FreeLook"));
+    if (HasMovementBlockFlag(EMovementBlockFlags::Lean))     Names.Add(TEXT("Lean"));
+    if (HasMovementBlockFlag(EMovementBlockFlags::Vault))    Names.Add(TEXT("Vault"));
+    if (HasMovementBlockFlag(EMovementBlockFlags::Stamina))  Names.Add(TEXT("Stamina"));
+    if (HasMovementBlockFlag(EMovementBlockFlags::Aiming))   Names.Add(TEXT("Aiming"));
+    if (HasMovementBlockFlag(EMovementBlockFlags::External)) Names.Add(TEXT("External"));
+
+    if (Names.Num() == 0)
+    {
+        return TEXT("None");
+    }
+
+    FString Result;
+    for (int32 Index = 0; Index < Names.Num(); ++Index)
+    {
+        Result += Names[Index];
+        if (Index < Names.Num() - 1)
+        {
+            Result += TEXT(" | ");
+        }
+    }
+
+    return Result;
+}
+
+void UEZCharacterMovementComponent::DrawMovementDebug() const
+{
+    if (!GEngine || !CharacterOwner)
+    {
+        return;
+    }
+
+    const FString DebugText = FString::Printf(
+        TEXT("Stance: %s\nSprint Requested: %s\nSprint Active: %s\nBlockers: %s\nGround Angle: %.2f\nSlope Mult: %.3f\nMax Speed: %.2f\nCurrent Speed: %.2f\nWalk Step: %d"),
+        *GetStanceString(),
+        bWantsToSprint ? TEXT("Yes") : TEXT("No"),
+        IsSprintActive() ? TEXT("Yes") : TEXT("No"),
+        *GetMovementBlockFlagsString(),
+        GetCurrentGroundAngleDegrees(),
+        CalculateSlopeSpeedMultiplier(),
+        GetMaxSpeed(),
+        Velocity.Size2D(),
+        CurrentWalkSpeedStepIndex
+    );
+
+    GEngine->AddOnScreenDebugMessage(
+        reinterpret_cast<uint64>(this),
+        0.0f,
+        FColor::Green,
+        DebugText
+    );
 }
