@@ -1,5 +1,3 @@
-// Fill out your copyright notice in the Description page of Project Settings.
-
 #pragma once
 
 #include "CoreMinimal.h"
@@ -12,21 +10,18 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnStaminaChanged, float, CurrentSt
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnStaminaDepleted);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnStaminaRecovered);
 
-UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
+UCLASS(ClassGroup = (Custom), meta = (BlueprintSpawnableComponent))
 class ECHOZONE_API UEZStaminaComponent : public UActorComponent
 {
 	GENERATED_BODY()
 
-public:	
-	// Sets default values for this component's properties
+public:
 	UEZStaminaComponent();
 
 protected:
-	// Called when the game starts
 	virtual void BeginPlay() override;
 
-public:	
-	// Called every frame
+public:
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
 
 public:
@@ -64,6 +59,26 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Stamina|Debug")
 	bool bEnableStaminaDebug = false;
 
+	// Расход на склоне
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Stamina|Slope")
+	bool bUseSlopeStaminaModifier = true;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Stamina|Slope", meta = (ClampMin = "0.0"))
+	float UphillDrainMultiplierBonus = 0.75f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Stamina|Slope", meta = (ClampMin = "0.0"))
+	float DownhillDrainReduction = 0.35f;
+
+	// Реген на склоне
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Stamina|Slope", meta = (ClampMin = "0.0"))
+	float UphillRecoveryReduction = 0.50f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Stamina|Slope", meta = (ClampMin = "0.0"))
+	float DownhillRecoveryBonus = 0.35f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Stamina|Slope", meta = (ClampMin = "1.0", ClampMax = "89.0"))
+	float MaxSlopeAngleForStaminaEffect = 45.0f;
+
 protected:
 	UPROPERTY(Transient)
 	float TimeSinceSprintStopped = 0.0f;
@@ -84,6 +99,9 @@ protected:
 	bool IsSprintCurrentlyActive() const;
 	void BroadcastStaminaChanged();
 	void DrawDebug() const;
+
+	float GetSlopeStaminaMultiplier() const;
+	float GetSlopeRecoveryMultiplier() const;
 
 public:
 	UFUNCTION(BlueprintCallable, Category = "Stamina")

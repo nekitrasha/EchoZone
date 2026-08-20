@@ -14,6 +14,7 @@ void UEZStaminaComponent::BeginPlay()
 {
     Super::BeginPlay();
 
+    MaxStamina = FMath::Max(0.0f, MaxStamina);
     CurrentStamina = FMath::Clamp(CurrentStamina, 0.0f, MaxStamina);
 
     if (ACharacter* CharacterOwner = Cast<ACharacter>(GetOwner()))
@@ -58,7 +59,13 @@ void UEZStaminaComponent::UpdateStamina(float DeltaTime)
         TimeSinceSprintStopped = 0.0f;
 
         const float OldStamina = CurrentStamina;
-        CurrentStamina = FMath::Clamp(CurrentStamina - SprintDrainPerSecond * DeltaTime, 0.0f, MaxStamina);
+        const float SlopeMultiplier = GetSlopeStaminaMultiplier();
+
+        CurrentStamina = FMath::Clamp(
+            CurrentStamina - SprintDrainPerSecond * SlopeMultiplier * DeltaTime,
+            0.0f,
+            MaxStamina
+        );
 
         if (!FMath::IsNearlyEqual(OldStamina, CurrentStamina))
         {
@@ -68,7 +75,6 @@ void UEZStaminaComponent::UpdateStamina(float DeltaTime)
         if (CurrentStamina <= 0.0f)
         {
             ApplySprintBlock(true);
-
         }
     }
     else
@@ -78,7 +84,13 @@ void UEZStaminaComponent::UpdateStamina(float DeltaTime)
         if (CanRecoverStamina())
         {
             const float OldStamina = CurrentStamina;
-            CurrentStamina = FMath::Clamp(CurrentStamina + RecoveryPerSecond * DeltaTime, 0.0f, MaxStamina);
+            const float RecoveryMultiplier = GetSlopeRecoveryMultiplier();
+
+            CurrentStamina = FMath::Clamp(
+                CurrentStamina + RecoveryPerSecond * RecoveryMultiplier * DeltaTime,
+                0.0f,
+                MaxStamina
+            );
 
             if (!FMath::IsNearlyEqual(OldStamina, CurrentStamina))
             {
@@ -137,6 +149,104 @@ bool UEZStaminaComponent::IsSprintCurrentlyActive() const
 void UEZStaminaComponent::BroadcastStaminaChanged()
 {
     OnStaminaChanged.Broadcast(CurrentStamina, MaxStamina);
+}
+
+float UEZStaminaComponent::GetSlopeStaminaMultiplier() const
+{
+    if (!bUseSlopeStaminaModifier || !CachedMovementComponent || !GetOwner())
+    {
+        return 1.0f;
+    }
+
+    const FFindFloorResult& Floor = CachedMovementComponent->CurrentFloor;
+    if (!Floor.bBlockingHit)
+    {
+        return 1.0f;
+    }
+
+    const FVector FloorNormal = Floor.HitResult.ImpactNormal.GetSafeNormal();
+
+    FVector HorizontalVelocity = GetOwner()->GetVelocity();
+    HorizontalVelocity.Z = 0.0f;
+
+    if (HorizontalVelocity.IsNearlyZero())
+    {
+        return 1.0f;
+    }
+
+    HorizontalVelocity.Normalize();
+
+    const FVector UphillDirection = FVector::VectorPlaneProject(FVector::UpVector, FloorNormal).GetSafeNormal();
+    if (UphillDirection.IsNearlyZero())
+    {
+        return 1.0f;
+    }
+
+    const float MoveDot = FVector::DotProduct(HorizontalVelocity, UphillDirection);
+    const float SlopeDot = FMath::Clamp(FVector::DotProduct(FloorNormal, FVector::UpVector), -1.0f, 1.0f);
+    const float SlopeAngleDeg = FMath::RadiansToDegrees(FMath::Acos(SlopeDot));
+    const float SlopeAlpha = FMath::Clamp(SlopeAngleDeg / MaxSlopeAngleForStaminaEffect, 0.0f, 1.0f);
+
+    if (MoveDot > 0.0f)
+    {
+        return 1.0f + SlopeAlpha * MoveDot * UphillDrainMultiplierBonus;
+    }
+
+    if (MoveDot < 0.0f)
+    {
+        return 1.0f + SlopeAlpha * MoveDot * DownhillDrainReduction;
+    }
+
+    return 1.0f;
+}
+
+float UEZStaminaComponent::GetSlopeRecoveryMultiplier() const
+{
+    if (!bUseSlopeStaminaModifier || !CachedMovementComponent || !GetOwner())
+    {
+        return 1.0f;
+    }
+
+    const FFindFloorResult& Floor = CachedMovementComponent->CurrentFloor;
+    if (!Floor.bBlockingHit)
+    {
+        return 1.0f;
+    }
+
+    const FVector FloorNormal = Floor.HitResult.ImpactNormal.GetSafeNormal();
+
+    FVector HorizontalVelocity = GetOwner()->GetVelocity();
+    HorizontalVelocity.Z = 0.0f;
+
+    if (HorizontalVelocity.IsNearlyZero())
+    {
+        return 1.0f;
+    }
+
+    HorizontalVelocity.Normalize();
+
+    const FVector UphillDirection = FVector::VectorPlaneProject(FVector::UpVector, FloorNormal).GetSafeNormal();
+    if (UphillDirection.IsNearlyZero())
+    {
+        return 1.0f;
+    }
+
+    const float MoveDot = FVector::DotProduct(HorizontalVelocity, UphillDirection);
+    const float SlopeDot = FMath::Clamp(FVector::DotProduct(FloorNormal, FVector::UpVector), -1.0f, 1.0f);
+    const float SlopeAngleDeg = FMath::RadiansToDegrees(FMath::Acos(SlopeDot));
+    const float SlopeAlpha = FMath::Clamp(SlopeAngleDeg / MaxSlopeAngleForStaminaEffect, 0.0f, 1.0f);
+
+    if (MoveDot > 0.0f)
+    {
+        return FMath::Max(0.1f, 1.0f - SlopeAlpha * MoveDot * UphillRecoveryReduction);
+    }
+
+    if (MoveDot < 0.0f)
+    {
+        return 1.0f + SlopeAlpha * (-MoveDot) * DownhillRecoveryBonus;
+    }
+
+    return 1.0f;
 }
 
 float UEZStaminaComponent::GetStaminaNormalized() const
@@ -208,7 +318,6 @@ void UEZStaminaComponent::SetCurrentStamina(float NewValue)
 
     const bool bShouldBlockSprint = CurrentStamina < MinStaminaToAllowSprint;
     ApplySprintBlock(bShouldBlockSprint);
-
 }
 
 void UEZStaminaComponent::DrawDebug() const
@@ -219,12 +328,14 @@ void UEZStaminaComponent::DrawDebug() const
     }
 
     const FString DebugText = FString::Printf(
-        TEXT("Stamina: %.1f / %.1f\nNormalized: %.2f\nSprint Blocked: %s\nRecover Delay Timer: %.2f"),
+        TEXT("Stamina: %.1f / %.1f\nNormalized: %.2f\nSprint Blocked: %s\nRecover Delay Timer: %.2f\nSlope Drain Mult: %.2f\nSlope Recover Mult: %.2f"),
         CurrentStamina,
         MaxStamina,
         GetStaminaNormalized(),
         bStaminaBlockedSprint ? TEXT("Yes") : TEXT("No"),
-        TimeSinceSprintStopped
+        TimeSinceSprintStopped,
+        GetSlopeStaminaMultiplier(),
+        GetSlopeRecoveryMultiplier()
     );
 
     GEngine->AddOnScreenDebugMessage(
