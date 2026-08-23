@@ -64,6 +64,57 @@ AActor* UEZInteractComponent::FindInterectableActor() const
 
 	if (bEnableInteractionDebug)
 	{
-
+		DrawDebugLine(GetWorld(), TraceStart, TraceEnd, bHit ? FColor::Green : FColor::Red, false, 0.03f, 0, 1.0f);
+		
+		if (bHit)
+		{
+			DrawDebugSphere(GetWorld(), HitResult.ImpactPoint, 8.0f, 12, FColor::Yellow, false, 0.03f);
+		}
 	}
+
+	if (!bHit || !HitResult.GetActor())
+	{
+		return nullptr;
+	}
+
+	AActor* HitActor = HitResult.GetActor();
+	if (!HitActor->GetClass()->ImplementsInterface(UEZInteractableInterface::StaticClass()))
+	{
+		return nullptr;
+	}
+
+	const bool bCanInteract = UEZInteractableInterface::Execute_CanInteract(HitActor, GetOwner());
+	return bCanInteract ? HitActor : nullptr;
+}
+
+void UEZInteractComponent::TryInteract()
+{
+	if (!CurrentInteractable)
+	{
+		return;
+	}
+	if (!CurrentInteractable->GetClass()->ImplementsInterface(UEZInteractableInterface::StaticClass()))
+	{
+		return;
+	}
+	if (!UEZInteractableInterface::Execute_CanInteract(CurrentInteractable, GetOwner()));
+	{
+		return;
+	}
+
+	UEZInteractableInterface::Execute_Interact(CurrentInteractable, GetOwner());
+}
+
+FText UEZInteractComponent::GetCurrentInteractText() const
+{
+	if (!CurrentInteractable)
+	{
+		return FText::GetEmpty();
+	}
+	if (!CurrentInteractable->GetClass()->ImplementsInterface(UEZInteractableInterface::StaticClass()))
+	{
+		return FText::GetEmpty();
+	}
+
+	return UEZInteractableInterface::Execute_GetInteractText(CurrentInteractable);
 }

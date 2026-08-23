@@ -12,6 +12,7 @@ class UInputMappingContext;
 class UInputAction;
 class UEZCharacterMovementComponent;
 class UEZStaminaComponent;
+class UEZInteractComponent;
 
 UCLASS()
 class ECHOZONE_API AEZCharacter : public ACharacter
@@ -42,6 +43,9 @@ protected:
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
     UEZStaminaComponent* StaminaComponent;
 
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
+    UEZInteractComponent* InteractComponent;
+
     UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
     UInputMappingContext* DefaultMappingContext;
 
@@ -71,6 +75,9 @@ protected:
 
     UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
     UInputAction* WalkSpeedDownAction;
+
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
+    UInputAction* Interacted;
 
     UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Lean")
     float LeanAngle = 15.0f;
@@ -148,6 +155,8 @@ protected:
 
     void IncreaseWalkSpeedStep();
     void DecreaseWalkSpeedStep();
+
+    void Interact();
 
     void UpdateView(float DeltaTime);
     void UpdateFreeLook(float DeltaTime);

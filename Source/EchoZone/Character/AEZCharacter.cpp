@@ -28,6 +28,8 @@ AEZCharacter::AEZCharacter(const FObjectInitializer& ObjectInitializer)
 
     StaminaComponent = CreateDefaultSubobject<UEZStaminaComponent>(TEXT("StaminaComponent"));
 
+    InteractComponent = CreateDefaultSubobject<UEZInteractComponent>(TEXT("InteractComponent"));
+
     bUseControllerRotationPitch = false;
     bUseControllerRotationYaw = true;
     bUseControllerRotationRoll = false;
@@ -143,6 +145,11 @@ void AEZCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCompone
         if (WalkSpeedDownAction)
         {
             EnhancedInputComponent->BindAction(WalkSpeedDownAction, ETriggerEvent::Started, this, &AEZCharacter::DecreaseWalkSpeedStep);
+        }
+
+        if (Interacted)
+        {
+            EnhancedInputComponent->BindAction(Interacted, ETriggerEvent::Started, this, &AEZCharacter::Interact);
         }
     }
 }
@@ -302,6 +309,14 @@ void AEZCharacter::DecreaseWalkSpeedStep()
     if (UEZCharacterMovementComponent* EZMoveComp = GetUEZMovementComponent())
     {
         EZMoveComp->DecreaseWalkSpeedStep();
+    }
+}
+
+void AEZCharacter::Interact()
+{
+    if (InteractComponent)
+    {
+        InteractComponent->TryInteract();
     }
 }
 
