@@ -13,6 +13,7 @@ class UInputAction;
 class UEZCharacterMovementComponent;
 class UEZStaminaComponent;
 class UEZInteractComponent;
+class UEZHealthComponent;
 
 UCLASS()
 class ECHOZONE_API AEZCharacter : public ACharacter
@@ -45,6 +46,9 @@ protected:
 
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
     UEZInteractComponent* InteractComponent;
+
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
+    UEZHealthComponent* HealthComponent;
 
     UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
     UInputMappingContext* DefaultMappingContext;

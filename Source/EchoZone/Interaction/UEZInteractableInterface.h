@@ -13,7 +13,7 @@ class ECHOZONE_API UEZInteractableInterface : public UInterface
 	GENERATED_BODY()
 };
 
-class ECHOZONE_API UEZInteractableInterface
+class ECHOZONE_API IEZInteractableInterface
 {
 	GENERATED_BODY()
 

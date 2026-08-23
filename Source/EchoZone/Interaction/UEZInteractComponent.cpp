@@ -83,7 +83,7 @@ AActor* UEZInteractComponent::FindInterectableActor() const
 		return nullptr;
 	}
 
-	const bool bCanInteract = UEZInteractableInterface::Execute_CanInteract(HitActor, GetOwner());
+	const bool bCanInteract = IEZInteractableInterface::Execute_CanInteract(HitActor, GetOwner());
 	return bCanInteract ? HitActor : nullptr;
 }
 
@@ -97,12 +97,12 @@ void UEZInteractComponent::TryInteract()
 	{
 		return;
 	}
-	if (!UEZInteractableInterface::Execute_CanInteract(CurrentInteractable, GetOwner()));
+	if (!IEZInteractableInterface::Execute_CanInteract(CurrentInteractable, GetOwner()))
 	{
 		return;
 	}
 
-	UEZInteractableInterface::Execute_Interact(CurrentInteractable, GetOwner());
+	IEZInteractableInterface::Execute_Interact(CurrentInteractable, GetOwner());
 }
 
 FText UEZInteractComponent::GetCurrentInteractText() const
@@ -116,5 +116,5 @@ FText UEZInteractComponent::GetCurrentInteractText() const
 		return FText::GetEmpty();
 	}
 
-	return UEZInteractableInterface::Execute_GetInteractText(CurrentInteractable);
+	return IEZInteractableInterface::Execute_GetInteractText(CurrentInteractable);
 }

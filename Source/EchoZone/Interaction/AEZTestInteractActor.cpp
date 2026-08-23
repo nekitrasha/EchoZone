@@ -21,7 +21,7 @@ void AEZTestInteractActor::Interact_Implementation(AActor* Interactor)
 
 	if (GEngine)
 	{
-		const FString Msg = FString::Printf(TEXT("Interacted with %s bu %s. Used state: %s"), *GetName(), *GetNameSafe(Interactor), bWasUsed ? TEXT("True") : TEXT("False"));
+		const FString Msg = FString::Printf(TEXT("Interacted with %s bu %s. Used state: %s"), *GetNameSafe(this), *GetNameSafe(Interactor), bWasUsed ? TEXT("True") : TEXT("False"));
 		GEngine->AddOnScreenDebugMessage(-1, 2.0f, FColor::Cyan, Msg);
 	}
 }

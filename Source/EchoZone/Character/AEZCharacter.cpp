@@ -1,6 +1,8 @@
 #include "AEZCharacter.h"
 #include "Component/UEZCharacterMovementComponent.h"
 #include "Component/UEZStaminaComponent.h"
+#include "EchoZone/Interaction/UEZInteractComponent.h"
+#include "Component/UEZHealthComponent.h"
 
 #include "Camera/CameraComponent.h"
 #include "Components/SceneComponent.h"
@@ -29,6 +31,8 @@ AEZCharacter::AEZCharacter(const FObjectInitializer& ObjectInitializer)
     StaminaComponent = CreateDefaultSubobject<UEZStaminaComponent>(TEXT("StaminaComponent"));
 
     InteractComponent = CreateDefaultSubobject<UEZInteractComponent>(TEXT("InteractComponent"));
+
+    HealthComponent = CreateDefaultSubobject<UEZHealthComponent>(TEXT("HealthComponent"));
 
     bUseControllerRotationPitch = false;
     bUseControllerRotationYaw = true;

@@ -7,8 +7,10 @@
 #include "UEZInteractableInterface.h"
 #include "AEZTestInteractActor.generated.h"
 
+class UStaticMeshComponent;
+
 UCLASS()
-class ECHOZONE_API AEZTestInteractActor : public AActor, public UEZInteractableInterface
+class ECHOZONE_API AEZTestInteractActor : public AActor, public IEZInteractableInterface
 {
 	GENERATED_BODY()
 	
