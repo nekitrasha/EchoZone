@@ -4,7 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
-#include "UEZInteractableInterface.h"
+#include "EchoZone/Interaction/UEZInteractableInterface.h"
 #include "AEZDoorActor.generated.h"
 
 class UStaticMeshComponent;

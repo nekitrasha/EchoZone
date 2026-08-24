@@ -4,26 +4,30 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
-#include "UEZInteractableInterface.h"
-#include "AEZMedkitPickup.generated.h"
+#include "EchoZone/Interaction/UEZInteractableInterface.h"
+#include "AEZSwitchActor.generated.h"
 
 class UStaticMeshComponent;
+class AEZDoorActor;
 
 UCLASS()
-class ECHOZONE_API AEZMedkitPickup : public AActor, public IEZInteractableInterface
+class ECHOZONE_API AEZSwitchActor : public AActor, public IEZInteractableInterface
 {
 	GENERATED_BODY()
 	
 public:	
 	// Sets default values for this actor's properties
-	AEZMedkitPickup();
+	AEZSwitchActor();
 
 protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
 	UStaticMeshComponent* MeshComponent;
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Pickup")
-	float HealthAmount = 35.0f;
+	UPROPERTY(EditInstanceOnly, BlueprintReadOnly, Category = "Switch")
+	AEZDoorActor* LinkedDoor = nullptr;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Switch")
+	bool bIsOn = false;
 
 public:	
 	virtual void Interact_Implementation(AActor* Interactor) override;

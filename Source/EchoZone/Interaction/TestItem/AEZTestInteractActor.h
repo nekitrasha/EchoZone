@@ -4,32 +4,34 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
-#include "UEZInteractableInterface.h"
-#include "AEZSwitchActor.generated.h"
+#include "EchoZone/Interaction/UEZInteractableInterface.h"
+#include "AEZTestInteractActor.generated.h"
 
 class UStaticMeshComponent;
-class AEZDoorActor;
 
 UCLASS()
-class ECHOZONE_API AEZSwitchActor : public AActor, public IEZInteractableInterface
+class ECHOZONE_API AEZTestInteractActor : public AActor, public IEZInteractableInterface
 {
 	GENERATED_BODY()
 	
 public:	
 	// Sets default values for this actor's properties
-	AEZSwitchActor();
+	AEZTestInteractActor();
 
 protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
 	UStaticMeshComponent* MeshComponent;
 
-	UPROPERTY(EditInstanceOnly, BlueprintReadOnly, Category = "Switch")
-	AEZDoorActor* LinkedDoor = nullptr;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Interaction")
+	FText InteractText = FText::FromString(TEXT("Use"));
 
-	UPROPERTY(BlueprintReadOnly, Category = "Switch")
-	bool bIsOn = false;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Interaction")
+	bool bCanCurrentlyInteact = true;
 
-public:	
+	UPROPERTY(BlueprintReadOnly, Category = "Interaction")
+	bool bWasUsed = false;
+
+public:
 	virtual void Interact_Implementation(AActor* Interactor) override;
 	virtual bool CanInteract_Implementation(AActor* Interactor) const override;
 	virtual FText GetInteractText_Implementation() const override;

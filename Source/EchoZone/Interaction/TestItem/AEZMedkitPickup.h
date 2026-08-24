@@ -4,34 +4,28 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
-#include "UEZInteractableInterface.h"
-#include "AEZTestInteractActor.generated.h"
+#include "EchoZone/Interaction/UEZInteractableInterface.h"
+#include "AEZMedkitPickup.generated.h"
 
 class UStaticMeshComponent;
 
 UCLASS()
-class ECHOZONE_API AEZTestInteractActor : public AActor, public IEZInteractableInterface
+class ECHOZONE_API AEZMedkitPickup : public AActor, public IEZInteractableInterface
 {
 	GENERATED_BODY()
 	
 public:	
 	// Sets default values for this actor's properties
-	AEZTestInteractActor();
+	AEZMedkitPickup();
 
 protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
 	UStaticMeshComponent* MeshComponent;
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Interaction")
-	FText InteractText = FText::FromString(TEXT("Use"));
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Pickup")
+	float HealthAmount = 35.0f;
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Interaction")
-	bool bCanCurrentlyInteact = true;
-
-	UPROPERTY(BlueprintReadOnly, Category = "Interaction")
-	bool bWasUsed = false;
-
-public:
+public:	
 	virtual void Interact_Implementation(AActor* Interactor) override;
 	virtual bool CanInteract_Implementation(AActor* Interactor) const override;
 	virtual FText GetInteractText_Implementation() const override;
