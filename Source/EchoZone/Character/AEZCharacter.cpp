@@ -3,6 +3,7 @@
 #include "Component/UEZStaminaComponent.h"
 #include "EchoZone/Interaction/UEZInteractComponent.h"
 #include "Component/UEZHealthComponent.h"
+#include "EchoZone/Interaction/UEZInteractWidget.h"
 
 #include "Camera/CameraComponent.h"
 #include "Components/SceneComponent.h"
@@ -10,6 +11,7 @@
 #include "EnhancedInputSubsystems.h"
 #include "GameFramework/PlayerController.h"
 #include "GameFramework/SpringArmComponent.h"
+#include "Blueprint/UserWidget.h"
 
 AEZCharacter::AEZCharacter(const FObjectInitializer& ObjectInitializer)
     : Super(ObjectInitializer.SetDefaultSubobjectClass<UEZCharacterMovementComponent>(ACharacter::CharacterMovementComponentName))
@@ -78,6 +80,23 @@ void AEZCharacter::BeginPlay()
     {
         EZMoveComp->RefreshMovementSettings();
     }
+
+    if (InteractComponent)
+    {
+        InteractComponent->OnInteractable.AddDynamic(this, &AEZCharacter::HandleInteractableChanged);
+    }
+
+    if (InteractWidgetClass)
+    {
+        InteractWidget = CreateWidget<UEZInteractWidget>(GetWorld(), InteractWidgetClass);
+        if (InteractWidget)
+        {
+            InteractWidget->AddToViewport();
+            InteractWidget->SetVisibility(ESlateVisibility::Hidden);
+        }
+    }
+
+    UpdateInteractWidget();
 }
 
 void AEZCharacter::Tick(float DeltaTime)
@@ -321,6 +340,7 @@ void AEZCharacter::Interact()
     if (InteractComponent)
     {
         InteractComponent->TryInteract();
+        UpdateInteractWidget();
     }
 }
 
@@ -416,4 +436,30 @@ void AEZCharacter::UpdateFreeLook(float DeltaTime)
 
     FreeLookYaw = FMath::FInterpTo(FreeLookYaw, 0.0f, DeltaTime, FreeLookReturnInterpSpeed);
     FreeLookPitch = FMath::FInterpTo(FreeLookPitch, 0.0f, DeltaTime, FreeLookReturnInterpSpeed);
+}
+
+void AEZCharacter::HandleInteractableChanged(AActor* NewInteractable)
+{
+    UpdateInteractWidget();
+}
+
+void AEZCharacter::UpdateInteractWidget()
+{
+    if (!InteractWidget || !InteractComponent)
+    {
+        return;
+    }
+
+    if (InteractComponent->HasInteractable())
+    {
+        const FText ActionText = InteractComponent->GetCurrentInteractText();
+        const FText FinalText = FText::Format(FText::FromString(TEXT("[F] {0}")), ActionText);
+
+        InteractWidget->SetInteractText(FinalText);
+        InteractWidget->SetVisibility(ESlateVisibility::Visible);
+    }
+    else
+    {
+        InteractWidget->SetVisibility(ESlateVisibility::Hidden);
+    }
 }

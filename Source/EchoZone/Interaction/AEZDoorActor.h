@@ -27,5 +27,36 @@ protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
 	USceneComponent* SceneRoot;
 
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
+	UStaticMeshComponent* DoorFrame;
 
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
+	UStaticMeshComponent* DoorMesh;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Door")
+	float OpenAngle = 90.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Door")
+	float InterpSpeed = 3.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Door")
+	bool bLocked = false;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Door")
+	bool bIsOpen = false;
+
+	float ClosedYaw = 0.0f;
+	float TargetYaw = 0.0f;
+
+public:
+	UFUNCTION(BlueprintCallable, Category = "Door")
+	void SetOpen(bool bOpen);
+
+public:
+	virtual void Interact_Implementation(AActor* Interactor) override;
+	virtual bool CanInteract_Implementation(AActor* Interactor) const override;
+	virtual FText GetInteractText_Implementation() const override;
+
+protected:
+	void UpdateDoorRotation(float DeltaTime);
 };

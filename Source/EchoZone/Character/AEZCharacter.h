@@ -14,6 +14,8 @@ class UEZCharacterMovementComponent;
 class UEZStaminaComponent;
 class UEZInteractComponent;
 class UEZHealthComponent;
+class UEZInteractWidget;
+class UUserWidget;
 
 UCLASS()
 class ECHOZONE_API AEZCharacter : public ACharacter
@@ -49,6 +51,12 @@ protected:
 
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
     UEZHealthComponent* HealthComponent;
+
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "UI")
+    TSubclassOf<UEZInteractWidget> InteractWidgetClass;
+
+    UPROPERTY()
+    UEZInteractWidget* InteractWidget;
 
     UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
     UInputMappingContext* DefaultMappingContext;
@@ -161,6 +169,11 @@ protected:
     void DecreaseWalkSpeedStep();
 
     void Interact();
+
+    UFUNCTION()
+    void HandleInteractableChanged(AActor* NewInteractable);
+
+    void UpdateInteractWidget();
 
     void UpdateView(float DeltaTime);
     void UpdateFreeLook(float DeltaTime);
