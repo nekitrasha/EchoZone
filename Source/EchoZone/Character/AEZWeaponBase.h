@@ -98,18 +98,59 @@ protected:
 	float CurrentSpreadAngle = 1.0f;
 
 	//RECOIL
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Recoil")
+	float VerticalRecoil = 1.0f;
 
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Recoil")
+	float HorizontalRecoil = 0.4f;
 
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Recoil")
+	float RecoilKickPerShot = 0.08f;
 
-	FTimerHandle FireCooldownTimerHandle;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Recoil")
+	float MaxRecoilMultiplier = 1.75f;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Recoil")
+	float CurrentRecoilMultipler = 1.0f;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Recoil")
+	float RecoilRecoverySpeed = 4.0f;
+
+	//Ergonomic
+	UPROPERTY(EditDefaultsOnly, BluerpintReadOnly, Category = "Ergonomic")
+	float Ergonomic = 50.0f;
+
+	//ADS
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "ADS")
+	bool bIsAiming = false;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "ADS")
+	float AimEnterTime = 0.18f;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "ADS")
+	float AimExitTime = 0.14f;
+	
+	UPROPERTY(EditDefaultsOnlt, BlueprintReadOnly, Category = "Debug")
+	bool bDrawDebugShot = false;
+
+	FTimerHandle AutoFireTimerHandle;
 	FTimerHandle ReloadTimerHandle;
 
 public:	
 	UFUNCTION(BlueprintCallable, Category = "Weapon")
-	void StartFire();
+	virtual void StartFire();
 
 	UFUNCTION(BlueprintCallable, Category = "Weapon")
-	void Reload();
+	virtual void StopFire();
+
+	UFUNCTION(BlueprintCallable, Category = "Weapon")
+	virtual void Reload();
+
+	UFUNCTION(BlueprintCallable, Category = "Weapon")
+	virtual void StartAim();
+
+	UFUNCTION(BlueprintCallable, Category = "Weapon")
+	virtual void StopAim();
 
 	UFUNCTION(BlueprintCallable, Category = "Weapon")
 	bool CanFire() const;
@@ -121,10 +162,31 @@ public:
 	int32 GetAmmoInMagazine() const { return AmmoInMagazine; }
 
 	UFUNCTION(BlueprintCallable, Category = "Weapon")
-	int32  GetMagazineSize() const { return MagazineSize; }
+	int32  GetReserveAmmo() const { return ReserveAmmo; }
+
+	UFUNCTION(BlueprintCallable, Category = "Weapon")
+	bool IsReloading() const { return bIsReloading; }
+
+	UFUNCTION(BlueprintCallable, Category = "Weapon")
+	bool IsAiming() const { return bIsAiming; }
+
+	UFUNCTION(BlueprintCallable, Category = "Weapon")
+	float GetAimAplha() const;
 
 protected:
 	void FireShot();
-	void ResetFire();
+	void HandleAutoFire();
 	void FinishReload();
+
+	FVector GetAimDirection() const;
+	FVector GetShotDirection() const;
+
+	void ApplyRecoil();
+
+	float GetErgonomicsNormalized() const;
+	float GetMovementSpreadMultiplier() const;
+	float GerEffectiveBaseSpread() const;
+	float GetEffectiveVerticalRecoil() const;
+	float GetEffectiveHorizontalRecoil() const;
+	bool IsOwnerSprinting() const;
 };

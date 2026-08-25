@@ -3,15 +3,22 @@
 
 #include "AEZWeaponBase.h"
 #include "AEZProjectile.h"
+#include "EchoZone/Weapon/DataAsset/UEZAmmoDataAsset.h"
+
 #include "Components/StaticMeshComponent.h"
 #include "Components/SceneComponent.h"
+#include "GameFramework/Pawn.h"
+#include "GameFramework/Controller.h"
+#include "GameFramework/Character.h"
+#include "GameFramework/CharacterMovementComponent.h"
 #include "Engine/World.h"
+#include "DrawDebugHelpers.h"
 
 // Sets default values
 AEZWeaponBase::AEZWeaponBase()
 {
  	// Set this actor to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
-	PrimaryActorTick.bCanEverTick = false;
+	PrimaryActorTick.bCanEverTick = true;
 
 	RootScene = CreateDefaultSubobject<USceneComponent>(TEXT("RootScene"));
 	RootComponent = RootScene;
@@ -25,7 +32,8 @@ AEZWeaponBase::AEZWeaponBase()
 	MuzzlePiont->SetRelativeLocation(FVector(50.0f, 0.0f, 0.0f));
 
 	AmmoInMagazine = MagazineSize;
-
+	CurrentSpreadAngle = BaseSpreadAngle;
+	CurrentRecoilMultipler = 1.0f;
 }
 
 // Called when the game starts or when spawned
@@ -34,12 +42,23 @@ void AEZWeaponBase::BeginPlay()
 	Super::BeginPlay();
 
 	AmmoInMagazine = MagazineSize;
-	
+	CurrentSpreadAngle = BaseSpreadAngle;
+	CurrentRecoilMultipler = 1.0f;
+}
+
+void AEZWeaponBase::Tick(float DeltaSeconds)
+{
+	Super::Tick(DeltaSeconds);
+
+	const float TargetSpread = GerEffectiveBaseSpread();
+	CurrentSpreadAngle = FMath::FInterpTo(CurrentSpreadAngle, TargetSpread, DeltaSeconds, SpreadRecoverySpeed);
+
+	CurrentRecoilMultipler = FMath::FInterpTo(CurrentRecoilMultipler, 1.0f, DeltaSeconds, RecoilRecoverySpeed);
 }
 
 bool AEZWeaponBase::CanFire() const
 {
-	return bCanFire && !bIsReloading && AmmoInMagazine > 0 && ProjectileClass != nullptr;
+	return !bIsReloading && ProjectileClass && AmmoData && AmmoInMagazine > 0 && (bCanFireWhileSprinting || IsOwnerSprinting());
 }
 
 bool AEZWeaponBase::CanReload() const

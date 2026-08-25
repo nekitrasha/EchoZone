@@ -478,7 +478,7 @@ void AEZCharacter::UpdateInteractWidget()
 
 void AEZCharacter::EquipStarterWeapon()
 {
-    if (!StarterWeaponClass || !GetWorld())
+    if (!StarterWeaponClass || !GetWorld() || !CameraComponent)
     {
         return;
     }
@@ -493,9 +493,9 @@ void AEZCharacter::EquipStarterWeapon()
         return;
     }
 
-    CurrentWeapon->AttachToComponent(GetRootComponent(), FAttachmentTransformRules::KeepRelativeTransform);
-    CurrentWeapon->SetActorRelativeLocation(FVector(50.0f, 20.0f, 40.0f));
-    CurrentWeapon->SetActorRelativeRotation(FRotator::ZeroRotator);
+    CurrentWeapon->AttachToComponent(CameraComponent, FAttachmentTransformRules::SnapToTargetIncludingScale);
+    CurrentWeapon->SetActorRelativeLocation(FVector(30.0f, 12.0f, -12.0f));
+    CurrentWeapon->SetActorRelativeRotation(FRotator(0.0f, 0.0f, 0.0f));
 }
 
 void AEZCharacter::StartFire()
