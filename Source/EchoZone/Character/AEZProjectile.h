@@ -9,6 +9,7 @@
 class UStaticMeshComponent;
 class UProjectileMovementComponent;
 class USphereComponent;
+class UEZAmmoDataAsset;
 
 UCLASS()
 class ECHOZONE_API AEZProjectile : public AActor
@@ -33,23 +34,20 @@ protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
 	UProjectileMovementComponent* ProjectileMovement;
 
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Projectile")
-	float Damage = 25.0f;
-
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Projectile")
-	float LifeSeconds = 5.0f;
+	UPROPERTY(BlueprintReadOnly, Category = "Ammo")
+	TObjectPtr<const UEZAmmoDataAsset> AmmoData;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Projectile")
 	bool bDestroyOnHit = true;
 
-	UFUNCTION()
-	void OnProjectileHit(UPrimitiveComponent* HitComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit);
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Debug")
+	bool bDrawDebugImpact = false;
 
 public:	
 	UFUNCTION(BlueprintCallable, Category = "Projectile")
-	void SetDamage(float NewDamage);
+	void InitProjectile(const UEZAmmoDataAsset* InAmmoData, const FVector& Direction);
 
-	UFUNCTION(BlueprintCallable, Category = "Projectile")
-	void SetVelocityDirection(const FVector& Direction);
-
+protected:
+	UFUNCTION()
+	void OnProjectileHit(UPrimitiveComponent* HitComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit);
 };

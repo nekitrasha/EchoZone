@@ -2,10 +2,12 @@
 
 
 #include "AEZProjectile.h"
+#include "EchoZone/Weapon/DataAsset/UEZAmmoDataAsset.h"
 #include "Components/SphereComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "GameFramework/ProjectileMovementComponent.h"
 #include "Kismet/GameplayStatics.h"
+#include "DrawDebugHelpers.h"
 
 // Sets default values
 AEZProjectile::AEZProjectile()
@@ -14,8 +16,10 @@ AEZProjectile::AEZProjectile()
 	PrimaryActorTick.bCanEverTick = false;
 
 	CollisionComponent = CreateDefaultSubobject<USphereComponent>(TEXT("CollisionComponent"));
-	CollisionComponent->InitSphereRadius(8.0f);
-	CollisionComponent->SetCollisionProfileName(TEXT("BlockAllDynamic"));
+	CollisionComponent->InitSphereRadius(6.0f);
+	CollisionComponent->SetCollisionEnable(ECollisionEnable::QueryAndPhysics);
+	CollisionComponent->SetCollisionObjectType(ECC_WorldDynamic);
+	CollisionComponent->SetCollisionResponseToAllChannels(ECR_Block);
 	RootComponent = CollisionComponent;
 
 	MeshComponent = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("MeshComponent"));
@@ -23,10 +27,9 @@ AEZProjectile::AEZProjectile()
 	MeshComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 
 	ProjectileMovement = CreateDefaultSubobject<UProjectileMovementComponent>(TEXT("ProjectileMovement"));
-	ProjectileMovement->InitialSpeed = 3000.0f;
-	ProjectileMovement->MaxSpeed = 3000.0f;
 	ProjectileMovement->bRotationFollowsVelocity = true;
 	ProjectileMovement->bShouldBounce = false;
+	ProjectileMovement->ProjectileGravityScale = 0.0f;
 
 	InitialLifeSpan = 5.0f;
 
@@ -38,17 +41,44 @@ void AEZProjectile::BeginPlay()
 	Super::BeginPlay();
 	
 	CollisionComponent->OnComponentHit.AddDynamic(this, &AEZProjectile::OnProjectileHit);
-	SetLifeSpan(LifeSeconds);
+	
+	if (AActor* OwnerActor = GetOwner())
+	{
+		CollisionComponent->IgnoreActorWhenMoving(OwnerActor, true);
+	}
 }
 
-void AEZProjectile::OnProjectileHit(UPrimitiveComponent* HitComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit)
+void AEZProjectile::InitProjectile(const UEZAmmoDataAsset* InAmmoData, const FVector& Direction)
 {
-	if (!OtherActor || OtherActor == this || OtherActor == GetOwner())
+	if (!InAmmoData || !ProjectileMovement)
 	{
 		return;
 	}
 
-	UGameplayStatics::ApplyPointDamage(OtherActor, Damage, GetActorForwardVector(), Hit, GetInstigatorController(), this, nullptr);
+	AmmoData = InAmmoData;
+
+	ProjectileMovement->InitialSpeed = AmmoData->InitialSpeed;
+	ProjectileMovement->MaxSpeed = AmmoData->MaxSpeed;
+	ProjectileMovement->ProjectileGravityScale = AmmoData->GravityScale;
+	ProjectileMovement->Velocity = Direction.GetSafeNormal() * AmmoData->InitialSpeed;
+
+	SetActorRotation(Direction.Rotation());
+	SetLifeSpan(AmmoData->LifeSeconds);
+}
+
+void AEZProjectile::OnProjectileHit(UPrimitiveComponent* HitComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit)
+{
+	if (!OtherActor || OtherActor == this || OtherActor == GetOwner() || !AmmoData)
+	{
+		return;
+	}
+
+	UGameplayStatics::ApplyPointDamage(OtherActor, AmmoData->Damage, GetActorForwardVector(), Hit, GetInstigatorController(), this, nullptr);
+
+	if (bDrawDebugImpact)
+	{
+		DrawDebugSphere(GetWorld(), Hit.ImpactPoint, 8.0f, 8, FColor::Red, false, 1.5f);
+	}
 
 	if (bDestroyOnHit)
 	{
@@ -56,19 +86,4 @@ void AEZProjectile::OnProjectileHit(UPrimitiveComponent* HitComponent, AActor* O
 	}
 }
 
-void AEZProjectile::SetDamage(float NewDamage)
-{
-	Damage = NewDamage;
-}
-
-void AEZProjectile::SetVelocityDirection(const FVector& Direction)
-{
-	if (!ProjectileMovement)
-	{
-		return;
-	}
-
-	const FVector SafeDirection = Direction.GetSafeNormal();
-	ProjectileMovement->Velocity = SafeDirection * ProjectileMovement->InitialSpeed;
-}
 

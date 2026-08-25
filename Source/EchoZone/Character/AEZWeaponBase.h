@@ -4,11 +4,13 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
+#include "EchoZone/Weapon/Enum/EEZWeaponType.h"
 #include "AEZWeaponBase.generated.h"
 
 class UStaticMeshComponent;
 class USceneRootComponent;
 class AEZProjectile;
+class UEZAmmoDataAsset;
 
 UCLASS()
 class ECHOZONE_API AEZWeaponBase : public AActor
@@ -22,6 +24,7 @@ public:
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
+	virtual void Tick(float DeltaSeconds) override;
 
 protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
@@ -37,10 +40,13 @@ protected:
 	TSubclassOf<AEZProjectile> ProjectileClass;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weapon")
-	float Damage = 25.0f;
+	EEZFireMode FireMode = EEZFireMode::SemiAuto;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weapon")
-	float FireRate = 300.0f;
+	TObjectPtr<UEZAmmoDataAsset> AmmoData;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weapon")
+	float FireRate = 600.0f;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weapon")
 	int32 MagazineSize = 30;
@@ -48,14 +54,52 @@ protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Weapon")
 	int32 AmmoInMagazine = 30;
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Weapon")
-	bool bCanFire = true;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weapon")
+	int32 ReserveAmmo = 90;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weapon")
+	float ReloadTime = 2.0f;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weapon")
+	bool bCanFireWhileSprinting = false;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Weapon")
 	bool bIsReloading = false;
 
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weapon")
-	float ReloadTime = 2.0f;
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Weapon")
+	bool bTriggerHeld = false;
+	
+	//Spread
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Spread")
+	float BaseSpreadAngle = 1.0f;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Spread")
+	float SpreadPerShot = 0.2f;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Spread")
+	float MaxSpreadAngle = 5.0f;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Spread")
+	float SpreadRecoverySpeed = 5.0f;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Spread")
+	float MovingSpreadMultiplier = 1.35f;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Spread")
+	float CrouchSpreadMultiplier = 0.8f;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Spread")
+	float ADS_SpreadMultiplier = 0.65f;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Spread")
+	float InAirSpreadMultiplier = 2.0f;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Spread")
+	float CurrentSpreadAngle = 1.0f;
+
+	//RECOIL
+
+
 
 	FTimerHandle FireCooldownTimerHandle;
 	FTimerHandle ReloadTimerHandle;
