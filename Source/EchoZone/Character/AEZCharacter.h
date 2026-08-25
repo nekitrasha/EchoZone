@@ -10,6 +10,7 @@ class USpringArmComponent;
 class USceneComponent;
 class UInputMappingContext;
 class UInputAction;
+class AEZWeaponBase;
 class UEZCharacterMovementComponent;
 class UEZStaminaComponent;
 class UEZInteractComponent;
@@ -91,6 +92,12 @@ protected:
     UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
     UInputAction* Interacted;
 
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
+    UInputAction* FireAction;
+
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
+    UInputAction* ReloadAction;
+
     UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Lean")
     float LeanAngle = 15.0f;
 
@@ -120,6 +127,12 @@ protected:
 
     UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "FreeLook")
     float FreeLookReturnInterpSpeed = 8.0f;
+
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weapon")
+    TSubclassOf<AEZWeaponBase> StarterWeaponClass;
+
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Weapon")
+    AEZWeaponBase* CurrentWeapon;
 
 protected:
     UPROPERTY(Transient)
@@ -179,6 +192,10 @@ protected:
     void UpdateFreeLook(float DeltaTime);
     void UpdateLeanState();
     void UpdateMovementFlags();
+
+    void StartFire();
+    void ReloadWeapon();
+    void EquipStarterWeapon();
 
     UEZCharacterMovementComponent* GetUEZMovementComponent() const;
 };

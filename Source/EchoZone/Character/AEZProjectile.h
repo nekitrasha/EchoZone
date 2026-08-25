@@ -33,13 +33,13 @@ protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
 	UProjectileMovementComponent* ProjectileMovement;
 
-	UPROPERTY(EditDefaultOnly, BlueprintReadOnly, Category = "Projectile")
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Projectile")
 	float Damage = 25.0f;
 
-	UPROPERTY(EditDefaultOnly, BlueprintReadOnly, Category = "Projectile")
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Projectile")
 	float LifeSeconds = 5.0f;
 
-	UPROPERTY(EditDefaultOnly, BlueprintReadOnly, Category = "Projectile")
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Projectile")
 	bool bDestroyOnHit = true;
 
 	UFUNCTION()

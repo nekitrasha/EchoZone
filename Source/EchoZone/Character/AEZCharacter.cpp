@@ -4,6 +4,7 @@
 #include "EchoZone/Interaction/UEZInteractComponent.h"
 #include "Component/UEZHealthComponent.h"
 #include "EchoZone/Interaction/UEZInteractWidget.h"
+#include "AEZWeaponBase.h"
 
 #include "Camera/CameraComponent.h"
 #include "Components/SceneComponent.h"
@@ -97,6 +98,7 @@ void AEZCharacter::BeginPlay()
     }
 
     UpdateInteractWidget();
+    EquipStarterWeapon();
 }
 
 void AEZCharacter::Tick(float DeltaTime)
@@ -173,6 +175,16 @@ void AEZCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCompone
         if (Interacted)
         {
             EnhancedInputComponent->BindAction(Interacted, ETriggerEvent::Started, this, &AEZCharacter::Interact);
+        }
+
+        if (FireAction)
+        {
+            EnhancedInputComponent->BindAction(FireAction, ETriggerEvent::Started, this, &AEZCharacter::StartFire);
+        }
+
+        if (ReloadAction)
+        {
+            EnhancedInputComponent->BindAction(ReloadAction, ETriggerEvent::Started, this, &AEZCharacter::ReloadWeapon);
         }
     }
 }
@@ -461,5 +473,43 @@ void AEZCharacter::UpdateInteractWidget()
     else
     {
         InteractWidget->SetVisibility(ESlateVisibility::Hidden);
+    }
+}
+
+void AEZCharacter::EquipStarterWeapon()
+{
+    if (!StarterWeaponClass || !GetWorld())
+    {
+        return;
+    }
+
+    FActorSpawnParameters SpawnParams;
+    SpawnParams.Owner = this;
+    SpawnParams.Instigator = this;
+
+    CurrentWeapon = GetWorld()->SpawnActor<AEZWeaponBase>(StarterWeaponClass, SpawnParams);
+    if (!CurrentWeapon)
+    {
+        return;
+    }
+
+    CurrentWeapon->AttachToComponent(GetRootComponent(), FAttachmentTransformRules::KeepRelativeTransform);
+    CurrentWeapon->SetActorRelativeLocation(FVector(50.0f, 20.0f, 40.0f));
+    CurrentWeapon->SetActorRelativeRotation(FRotator::ZeroRotator);
+}
+
+void AEZCharacter::StartFire()
+{
+    if (CurrentWeapon)
+    {
+        CurrentWeapon->StartFire();
+    }
+}
+
+void AEZCharacter::ReloadWeapon()
+{
+    if (CurrentWeapon)
+    {
+        CurrentWeapon->Reload();
     }
 }
