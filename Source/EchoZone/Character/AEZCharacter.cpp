@@ -11,18 +11,12 @@
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
 #include "GameFramework/PlayerController.h"
-#include "GameFramework/SpringArmComponent.h"
 #include "Blueprint/UserWidget.h"
 
 AEZCharacter::AEZCharacter(const FObjectInitializer& ObjectInitializer)
     : Super(ObjectInitializer.SetDefaultSubobjectClass<UEZCharacterMovementComponent>(ACharacter::CharacterMovementComponentName))
 {
     PrimaryActorTick.bCanEverTick = true;
-
-    /*SpringArmComponent = CreateDefaultSubobject<USpringArmComponent>(TEXT("SpringArm"));
-    SpringArmComponent->SetupAttachment(RootComponent);
-    SpringArmComponent->TargetArmLength = 0.0f;
-    SpringArmComponent->bUsePawnControlRotation = true;*/
 
     ViewRootComponent = CreateDefaultSubobject<USceneComponent>(TEXT("ViewRoot"));
     ViewRootComponent->SetupAttachment(RootComponent);
@@ -37,7 +31,7 @@ AEZCharacter::AEZCharacter(const FObjectInitializer& ObjectInitializer)
 
     HealthComponent = CreateDefaultSubobject<UEZHealthComponent>(TEXT("HealthComponent"));
 
-    bUseControllerRotationPitch = false;
+    bUseControllerRotationPitch = true;
     bUseControllerRotationYaw = true;
     bUseControllerRotationRoll = false;
 
@@ -65,13 +59,6 @@ void AEZCharacter::BeginPlay()
                 }
             }
         }
-    }
-
-    if (ViewRootComponent)
-    {
-        FVector RelativeLocation = ViewRootComponent->GetRelativeLocation();
-        RelativeLocation.Z = StandingViewZ;
-        ViewRootComponent->SetRelativeLocation(RelativeLocation);
     }
 
     UpdateLeanState();
@@ -445,8 +432,8 @@ void AEZCharacter::UpdateView(float DeltaTime)
     const FVector NewLocation = FMath::VInterpTo(CurrentLocation, TargetWorldLocation, DeltaTime, ViewHeightInterpSpeed);
     const FRotator NewRotation = FMath::RInterpTo(CurrentRotation, TargetWorldRotation, DeltaTime, LeanInterpSpeed);
 
-    ViewRootComponent->SetRelativeLocation(NewLocation);
-    ViewRootComponent->SetRelativeRotation(NewRotation);
+    ViewRootComponent->SetWorldLocation(NewLocation);
+    ViewRootComponent->SetWorldRotation(NewRotation);
 }
 
 void AEZCharacter::UpdateFreeLook(float DeltaTime)

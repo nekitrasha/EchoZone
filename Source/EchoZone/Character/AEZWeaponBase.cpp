@@ -4,6 +4,7 @@
 #include "AEZWeaponBase.h"
 #include "AEZProjectile.h"
 #include "EchoZone/Weapon/DataAsset/UEZAmmoDataAsset.h"
+#include "EchoZone/Character/Component/UEZCharacterMovementComponent.h"
 
 #include "Components/StaticMeshComponent.h"
 #include "Components/SceneComponent.h"
@@ -339,19 +340,12 @@ bool AEZWeaponBase::IsOwnerSprinting() const
 		return false;
 	}
 
-	const UCharacterMovementComponent* MoveComp = OwnerCharacter->GetCharacterMovement();
-	if (!MoveComp)
+	const UEZCharacterMovementComponent* EZMoveComp = Cast<UEZCharacterMovementComponent>(OwnerCharacter->GetCharacterMovement());
+	if (!EZMoveComp)
 	{
 		return false;
 	}
 
-	const float CurrentSpeed2D = OwnerCharacter->GetVelocity().Size2D();
-	const float MaxWalkSpeed = MoveComp->MaxWalkSpeed;
+	return EZMoveComp->IsSprintActive();
 
-	if (CurrentSpeed2D < 10.0f)
-	{
-		return false;
-	}
-
-	return CurrentSpeed2D > (MaxWalkSpeed * 0.9f);
 }

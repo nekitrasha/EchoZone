@@ -6,7 +6,6 @@
 #include "AEZCharacter.generated.h"
 
 class UCameraComponent;
-class USpringArmComponent;
 class USceneComponent;
 class UInputMappingContext;
 class UInputAction;
@@ -35,9 +34,6 @@ protected:
     virtual void OnEndCrouch(float HalfHeightAdjust, float ScaledHalfHeightAdjust) override;
 
 protected:
-    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
-    USpringArmComponent* SpringArmComponent;
-
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
     USceneComponent* ViewRootComponent;
 
