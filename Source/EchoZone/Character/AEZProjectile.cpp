@@ -17,7 +17,7 @@ AEZProjectile::AEZProjectile()
 
 	CollisionComponent = CreateDefaultSubobject<USphereComponent>(TEXT("CollisionComponent"));
 	CollisionComponent->InitSphereRadius(6.0f);
-	CollisionComponent->SetCollisionEnable(ECollisionEnable::QueryAndPhysics);
+	CollisionComponent->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
 	CollisionComponent->SetCollisionObjectType(ECC_WorldDynamic);
 	CollisionComponent->SetCollisionResponseToAllChannels(ECR_Block);
 	RootComponent = CollisionComponent;

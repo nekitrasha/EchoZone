@@ -34,7 +34,7 @@ protected:
 	UStaticMeshComponent* WeaponMesh;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
-	USceneComponent* MuzzlePiont;
+	USceneComponent* MuzzlePoint;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weapon")
 	TSubclassOf<AEZProjectile> ProjectileClass;
@@ -111,14 +111,14 @@ protected:
 	float MaxRecoilMultiplier = 1.75f;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Recoil")
-	float CurrentRecoilMultipler = 1.0f;
+	float CurrentRecoilMultiplier = 1.0f;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Recoil")
 	float RecoilRecoverySpeed = 4.0f;
 
 	//Ergonomic
-	UPROPERTY(EditDefaultsOnly, BluerpintReadOnly, Category = "Ergonomic")
-	float Ergonomic = 50.0f;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Ergonomic")
+	float Ergonomics = 50.0f;
 
 	//ADS
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "ADS")
@@ -130,7 +130,7 @@ protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "ADS")
 	float AimExitTime = 0.14f;
 	
-	UPROPERTY(EditDefaultsOnlt, BlueprintReadOnly, Category = "Debug")
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Debug")
 	bool bDrawDebugShot = false;
 
 	FTimerHandle AutoFireTimerHandle;
@@ -171,7 +171,7 @@ public:
 	bool IsAiming() const { return bIsAiming; }
 
 	UFUNCTION(BlueprintCallable, Category = "Weapon")
-	float GetAimAplha() const;
+	float GetAimAlpha() const;
 
 protected:
 	void FireShot();
@@ -179,13 +179,14 @@ protected:
 	void FinishReload();
 
 	FVector GetAimDirection() const;
-	FVector GetShotDirection() const;
+	FVector GetShotDirection(const FVector& FromLocation) const;
+	FVector GetCameraAimPoint() const;
 
 	void ApplyRecoil();
 
 	float GetErgonomicsNormalized() const;
 	float GetMovementSpreadMultiplier() const;
-	float GerEffectiveBaseSpread() const;
+	float GetEffectiveBaseSpread() const;
 	float GetEffectiveVerticalRecoil() const;
 	float GetEffectiveHorizontalRecoil() const;
 	bool IsOwnerSprinting() const;

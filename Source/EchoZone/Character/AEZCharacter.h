@@ -98,6 +98,9 @@ protected:
     UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
     UInputAction* ReloadAction;
 
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
+    UInputAction* AimAction;
+
     UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Lean")
     float LeanAngle = 15.0f;
 
@@ -106,6 +109,9 @@ protected:
 
     UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Lean")
     float LeanInterpSpeed = 10.0f;
+
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Camera")
+    FName FirstPersonCameraSocketName = TEXT("fp_camera_socket");
 
     UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Camera")
     float StandingViewZ = 64.0f;
@@ -133,6 +139,9 @@ protected:
 
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Weapon")
     AEZWeaponBase* CurrentWeapon;
+
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weapon")
+    FName WeaponSocketName = TEXT("weapon_r_socket");
 
 protected:
     UPROPERTY(Transient)
@@ -194,7 +203,10 @@ protected:
     void UpdateMovementFlags();
 
     void StartFire();
+    void StopFire();
     void ReloadWeapon();
+    void StartAim();
+    void StopAim();
     void EquipStarterWeapon();
 
     UEZCharacterMovementComponent* GetUEZMovementComponent() const;

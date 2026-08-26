@@ -19,13 +19,13 @@ AEZCharacter::AEZCharacter(const FObjectInitializer& ObjectInitializer)
 {
     PrimaryActorTick.bCanEverTick = true;
 
-    SpringArmComponent = CreateDefaultSubobject<USpringArmComponent>(TEXT("SpringArm"));
+    /*SpringArmComponent = CreateDefaultSubobject<USpringArmComponent>(TEXT("SpringArm"));
     SpringArmComponent->SetupAttachment(RootComponent);
     SpringArmComponent->TargetArmLength = 0.0f;
-    SpringArmComponent->bUsePawnControlRotation = true;
+    SpringArmComponent->bUsePawnControlRotation = true;*/
 
     ViewRootComponent = CreateDefaultSubobject<USceneComponent>(TEXT("ViewRoot"));
-    ViewRootComponent->SetupAttachment(SpringArmComponent);
+    ViewRootComponent->SetupAttachment(RootComponent);
 
     CameraComponent = CreateDefaultSubobject<UCameraComponent>(TEXT("Camera"));
     CameraComponent->SetupAttachment(ViewRootComponent);
@@ -180,11 +180,18 @@ void AEZCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCompone
         if (FireAction)
         {
             EnhancedInputComponent->BindAction(FireAction, ETriggerEvent::Started, this, &AEZCharacter::StartFire);
+            EnhancedInputComponent->BindAction(FireAction, ETriggerEvent::Completed, this, &AEZCharacter::StopFire);
         }
 
         if (ReloadAction)
         {
             EnhancedInputComponent->BindAction(ReloadAction, ETriggerEvent::Started, this, &AEZCharacter::ReloadWeapon);
+        }
+
+        if (AimAction)
+        {
+            EnhancedInputComponent->BindAction(AimAction, ETriggerEvent::Started, this, &AEZCharacter::StartAim);
+            EnhancedInputComponent->BindAction(AimAction, ETriggerEvent::Completed, this, &AEZCharacter::StopAim);
         }
     }
 }
@@ -412,28 +419,31 @@ void AEZCharacter::UpdateMovementFlags()
 
 void AEZCharacter::UpdateView(float DeltaTime)
 {
-    if (!ViewRootComponent)
+    if (!ViewRootComponent || !GetMesh())
     {
         return;
     }
 
-    const FVector CurrentLocation = ViewRootComponent->GetRelativeLocation();
-    const FRotator CurrentRotation = ViewRootComponent->GetRelativeRotation();
+    const FTransform HeadSocketTransform = GetMesh()->GetSocketTransform(FirstPersonCameraSocketName, RTS_World);
 
-    const FVector TargetLocation(0.0f, TargetLeanOffsetY, TargetViewZ);
-    const FRotator TargetRotation(0.0f, FreeLookYaw, TargetLeanRoll);
+    FVector TargetWorldLocation = HeadSocketTransform.GetLocation();
 
-    FVector NewLocation = FMath::VInterpTo(CurrentLocation, TargetLocation, DeltaTime, ViewHeightInterpSpeed);
-    FRotator NewRotation = FMath::RInterpTo(CurrentRotation, TargetRotation, DeltaTime, LeanInterpSpeed);
+    FRotator ControlRot = Controller ? Controller->GetControlRotation() : GetActorRotation();
+
+    FRotator TargetWorldRotation = ControlRot;
+    TargetWorldRotation.Roll += TargetLeanRoll;
+    TargetWorldRotation.Yaw += FreeLookYaw;
 
     if (bIsFreeLooking)
     {
-        NewRotation.Pitch = FMath::FInterpTo(CurrentRotation.Pitch, FreeLookPitch, DeltaTime, LeanInterpSpeed);
+        TargetWorldRotation.Pitch += FreeLookPitch;
     }
-    else
-    {
-        NewRotation.Pitch = FMath::FInterpTo(CurrentRotation.Pitch, 0.0f, DeltaTime, FreeLookReturnInterpSpeed);
-    }
+    
+    const FVector CurrentLocation = ViewRootComponent->GetComponentLocation();
+    const FRotator CurrentRotation = ViewRootComponent->GetComponentRotation();
+    
+    const FVector NewLocation = FMath::VInterpTo(CurrentLocation, TargetWorldLocation, DeltaTime, ViewHeightInterpSpeed);
+    const FRotator NewRotation = FMath::RInterpTo(CurrentRotation, TargetWorldRotation, DeltaTime, LeanInterpSpeed);
 
     ViewRootComponent->SetRelativeLocation(NewLocation);
     ViewRootComponent->SetRelativeRotation(NewRotation);
@@ -478,7 +488,7 @@ void AEZCharacter::UpdateInteractWidget()
 
 void AEZCharacter::EquipStarterWeapon()
 {
-    if (!StarterWeaponClass || !GetWorld() || !CameraComponent)
+    if (!StarterWeaponClass || !GetWorld() || !GetMesh())
     {
         return;
     }
@@ -493,9 +503,7 @@ void AEZCharacter::EquipStarterWeapon()
         return;
     }
 
-    CurrentWeapon->AttachToComponent(CameraComponent, FAttachmentTransformRules::SnapToTargetIncludingScale);
-    CurrentWeapon->SetActorRelativeLocation(FVector(30.0f, 12.0f, -12.0f));
-    CurrentWeapon->SetActorRelativeRotation(FRotator(0.0f, 0.0f, 0.0f));
+    CurrentWeapon->AttachToComponent(GetMesh(), FAttachmentTransformRules::SnapToTargetIncludingScale, WeaponSocketName);
 }
 
 void AEZCharacter::StartFire()
@@ -506,10 +514,34 @@ void AEZCharacter::StartFire()
     }
 }
 
+void AEZCharacter::StopFire()
+{
+    if (CurrentWeapon)
+    {
+        CurrentWeapon->StopFire();
+    }
+}
+
 void AEZCharacter::ReloadWeapon()
 {
     if (CurrentWeapon)
     {
         CurrentWeapon->Reload();
+    }
+}
+
+void AEZCharacter::StartAim()
+{
+    if (CurrentWeapon)
+    {
+        CurrentWeapon->StartAim();
+    }
+}
+
+void AEZCharacter::StopAim()
+{
+    if (CurrentWeapon)
+    {
+        CurrentWeapon->StopAim();
     }
 }
