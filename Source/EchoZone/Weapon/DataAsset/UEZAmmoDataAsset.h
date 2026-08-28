@@ -15,21 +15,21 @@ class ECHOZONE_API UEZAmmoDataAsset : public UPrimaryDataAsset
 	GENERATED_BODY()
 	
 public:
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Ammo")
-	float Damage = 25.0f;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Ballistic")
+	float Damage = 35.0f;
 
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Ammo")
-	float InitialSpeed = 4000.0f;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Ballistic")
+	float MaxLifeTime = 6.0f;
 
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Ammo")
-	float MaxSpeed = 4000.0f;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Ballistic")
+	float MuzzleVelocity = 80000.0f;
 
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Ammo")
-	float GravityScale = 0.0f;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Ballistic")
+	float GravityScale = 1.0f;
 
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Ammo")
-	float LifeSeconds = 5.0f;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Ballistic")
+	float DragCoefficient = 0.05f;
 
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Ammo")
-	float PenetrationPower = 0.0f;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Ballistic")
+	float Penetration = 20.0f;
 };

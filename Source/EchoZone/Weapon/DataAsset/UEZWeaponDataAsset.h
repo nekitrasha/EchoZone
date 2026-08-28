@@ -42,7 +42,7 @@ struct FEZWeaponSpreadSettings
 };
 
 USTRUCT(BlueprintType)
-struct FEZWEeaponRecoilSettings
+struct FEZWeaponRecoilSettings
 {
 	GENERATED_BODY()
 
@@ -102,4 +102,28 @@ public:
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weapon")
 	float FireRateRPM = 600.0f;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weapon")
+	bool bCanFireWhileSprinting = false;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weapon")
+	float Ergonomics = 50.0f;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weapon")
+	TObjectPtr<AEZProjectile> ProjectileClassOverride = nullptr;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weapon")
+	TObjectPtr<UEZAmmoDataAsset> DefaultAmmo = nullptr;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weapon")
+	TObjectPtr<UEZMagazineDataAsset> DefaultMagazine = nullptr;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weapon")
+	FEZWeaponSpreadSettings Spread;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weapon")
+	FEZWeaponRecoilSettings Recoil;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weapon")
+	FEZWeaponADSSettings ADS;
 };

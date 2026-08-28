@@ -11,6 +11,8 @@ class UStaticMeshComponent;
 class USceneRootComponent;
 class AEZProjectile;
 class UEZAmmoDataAsset;
+class UEZWeaponDataAsset;
+class UEZMagazineDataAsset;
 
 UCLASS()
 class ECHOZONE_API AEZWeaponBase : public AActor
@@ -29,6 +31,9 @@ protected:
 protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
 	USceneComponent* RootScene;
+	
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
+	USceneComponent* WeaponVisualRoot;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
 	UStaticMeshComponent* WeaponMesh;
@@ -36,14 +41,21 @@ protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
 	USceneComponent* MuzzlePoint;
 
+protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weapon")
 	TSubclassOf<AEZProjectile> ProjectileClass;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weapon")
-	EEZFireMode FireMode = EEZFireMode::SemiAuto;
+	TObjectPtr<UEZWeaponDataAsset> WeaponData;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Weapon")
+	TObjectPtr<UEZMagazineDataAsset> CurrentMagazineData;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Weapon")
+	TObjectPtr<UEZAmmoDataAsset> CurrentAmmoData;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weapon")
-	TObjectPtr<UEZAmmoDataAsset> AmmoData;
+	EEZFireMode FireMode = EEZFireMode::SemiAuto;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weapon")
 	float FireRate = 600.0f;
