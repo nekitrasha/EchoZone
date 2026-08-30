@@ -54,93 +54,35 @@ protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Weapon")
 	TObjectPtr<UEZAmmoDataAsset> CurrentAmmoData;
 
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weapon")
-	EEZFireMode FireMode = EEZFireMode::SemiAuto;
-
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weapon")
-	float FireRate = 600.0f;
-
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weapon")
-	int32 MagazineSize = 30;
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Weapon")
+	EEZFireMode CurrentFireMode = EEZFireMode::SemiAuto;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Weapon")
-	int32 AmmoInMagazine = 30;
+	int32 CurrentMagazineAmmo = 0;
 
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weapon")
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Weapon")
 	int32 ReserveAmmo = 90;
 
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weapon")
-	float ReloadTime = 2.0f;
-
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weapon")
-	bool bCanFireWhileSprinting = false;
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Weapon")
+	bool bRoundChambered = false;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Weapon")
 	bool bIsReloading = false;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Weapon")
 	bool bTriggerHeld = false;
-	
-	//Spread
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Spread")
-	float BaseSpreadAngle = 1.0f;
 
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Spread")
-	float SpreadPerShot = 0.2f;
-
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Spread")
-	float MaxSpreadAngle = 5.0f;
-
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Spread")
-	float SpreadRecoverySpeed = 5.0f;
-
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Spread")
-	float MovingSpreadMultiplier = 1.35f;
-
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Spread")
-	float CrouchSpreadMultiplier = 0.8f;
-
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Spread")
-	float ADS_SpreadMultiplier = 0.65f;
-
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Spread")
-	float InAirSpreadMultiplier = 2.0f;
-
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Spread")
-	float CurrentSpreadAngle = 1.0f;
-
-	//RECOIL
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Recoil")
-	float VerticalRecoil = 1.0f;
-
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Recoil")
-	float HorizontalRecoil = 0.4f;
-
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Recoil")
-	float RecoilKickPerShot = 0.08f;
-
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Recoil")
-	float MaxRecoilMultiplier = 1.75f;
-
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Recoil")
-	float CurrentRecoilMultiplier = 1.0f;
-
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Recoil")
-	float RecoilRecoverySpeed = 4.0f;
-
-	//Ergonomic
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Ergonomic")
-	float Ergonomics = 50.0f;
-
-	//ADS
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "ADS")
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Weapon")
 	bool bIsAiming = false;
 
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "ADS")
-	float AimEnterTime = 0.18f;
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Weapon")
+	float CurrentSpreadAngle = 0.0f;
 
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "ADS")
-	float AimExitTime = 0.14f;
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Weapon")
+	float CurrentRecoilMultiplier = 1.0f;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Weapon")
+	float CurrentAimAlpha = 0.0f;
 	
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Debug")
 	bool bDrawDebugShot = false;
@@ -171,7 +113,7 @@ public:
 	bool CanReload() const;
 
 	UFUNCTION(BlueprintCallable, Category = "Weapon")
-	int32 GetAmmoInMagazine() const { return AmmoInMagazine; }
+	int32 GetAmmoInMagazine() const { return CurrentMagazineAmmo + (bRoundChambered ? 1 : 0); }
 
 	UFUNCTION(BlueprintCallable, Category = "Weapon")
 	int32  GetReserveAmmo() const { return ReserveAmmo; }
@@ -185,14 +127,26 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Weapon")
 	float GetAimAlpha() const;
 
+	UFUNCTION(BlueprintCallable, Category = "Weapon")
+	float GetAimFOV() const;
+
+	UFUNCTION(BlueprintCallable, Category = "Weapon")
+	USceneComponent* GetWeaponVisualRoot() const { return WeaponVisualRoot; }
+
 protected:
+	void InitializeFromData();
 	void FireShot();
 	void HandleAutoFire();
 	void FinishReload();
+	void ConsumeRound();
+	
+	void UpdateSpread(float DeltaSeconds);
+	void UpdateRecoil(float DeltaSeconds);
+	void UpdateADS(float DeltaSeconds);
+	void UpdateVisualOffset(float DeltaSeconds);
 
-	FVector GetAimDirection() const;
-	FVector GetShotDirection(const FVector& FromLocation) const;
 	FVector GetCameraAimPoint() const;
+	FVector GetShotDirection(const FVector& FromLocation) const;
 
 	void ApplyRecoil();
 
@@ -202,4 +156,7 @@ protected:
 	float GetEffectiveVerticalRecoil() const;
 	float GetEffectiveHorizontalRecoil() const;
 	bool IsOwnerSprinting() const;
+
+	int32 GetMagazineCapacity() const;
+	float GetReloadDuration()  const;
 };

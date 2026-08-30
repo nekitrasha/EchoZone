@@ -110,7 +110,7 @@ public:
 	float Ergonomics = 50.0f;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weapon")
-	TObjectPtr<AEZProjectile> ProjectileClassOverride = nullptr;
+	TSubclassOf<AEZProjectile> ProjectileClassOverride = nullptr;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weapon")
 	TObjectPtr<UEZAmmoDataAsset> DefaultAmmo = nullptr;

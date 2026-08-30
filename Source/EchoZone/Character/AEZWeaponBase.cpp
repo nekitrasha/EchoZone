@@ -4,6 +4,8 @@
 #include "AEZWeaponBase.h"
 #include "AEZProjectile.h"
 #include "EchoZone/Weapon/DataAsset/UEZAmmoDataAsset.h"
+#include "EchoZone/Weapon/DataAsset/UEZWeaponDataAsset.h"
+#include "EchoZone/Weapon/DataAsset/UEZMagazineDataAsset.h"
 #include "EchoZone/Character/Component/UEZCharacterMovementComponent.h"
 
 #include "Components/StaticMeshComponent.h"
@@ -24,47 +26,74 @@ AEZWeaponBase::AEZWeaponBase()
 	RootScene = CreateDefaultSubobject<USceneComponent>(TEXT("RootScene"));
 	RootComponent = RootScene;
 
+	WeaponVisualRoot = CreateDefaultSubobject<USceneComponent>(TEXT("WeaponVisualRoot"));
+	WeaponVisualRoot->SetupAttachment(RootScene);
+
 	WeaponMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("WeaponMesh"));
-	WeaponMesh->SetupAttachment(RootScene);
+	WeaponMesh->SetupAttachment(WeaponVisualRoot);
 	WeaponMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 
 	MuzzlePoint = CreateDefaultSubobject<USceneComponent>(TEXT("MuzzlePont"));
 	MuzzlePoint->SetupAttachment(WeaponMesh);
 	MuzzlePoint->SetRelativeLocation(FVector(50.0f, 0.0f, 0.0f));
-
-	AmmoInMagazine = MagazineSize;
-	CurrentSpreadAngle = BaseSpreadAngle;
-	CurrentRecoilMultiplier = 1.0f;
 }
 
 // Called when the game starts or when spawned
 void AEZWeaponBase::BeginPlay()
 {
 	Super::BeginPlay();
-
-	AmmoInMagazine = MagazineSize;
-	CurrentSpreadAngle = BaseSpreadAngle;
-	CurrentRecoilMultiplier = 1.0f;
+	InitializeFromData();
 }
 
 void AEZWeaponBase::Tick(float DeltaSeconds)
 {
 	Super::Tick(DeltaSeconds);
+	
+	UpdateSpread(DeltaSeconds);
+	UpdateRecoil(DeltaSeconds);
+	UpdateADS(DeltaSeconds);
+	UpdateVisualOffset(DeltaSeconds);
+}
 
-	const float TargetSpread = GetEffectiveBaseSpread();
-	CurrentSpreadAngle = FMath::FInterpTo(CurrentSpreadAngle, TargetSpread, DeltaSeconds, SpreadRecoverySpeed);
+void AEZWeaponBase::InitializeFromData()
+{
+	if (!WeaponData)
+	{
+		UE_LOG(LogTemp, Error, TEXT("WeaponData is null on %s"), *GetName());
+		return;
+	}
 
-	CurrentRecoilMultiplier = FMath::FInterpTo(CurrentRecoilMultiplier, 1.0f, DeltaSeconds, RecoilRecoverySpeed);
+	CurrentAmmoData = WeaponData->DefaultAmmo;
+	CurrentMagazineData = WeaponData->DefaultMagazine;
+	CurrentFireMode = WeaponData->SupportedFireModes.Num() > 0 ? WeaponData->DefaultFireMode : EEZFireMode::SemiAuto;
+	CurrentMagazineAmmo = GetMagazineCapacity();
+	bRoundChambered = CurrentMagazineAmmo > 0;
+	CurrentSpreadAngle = WeaponData->Spread.BaseSpreadAngle;
+	CurrentRecoilMultiplier = 1.0f;
+	CurrentAimAlpha = 0.0f;
 }
 
 bool AEZWeaponBase::CanFire() const
 {
-	return !bIsReloading && ProjectileClass && AmmoData && AmmoInMagazine > 0 && (bCanFireWhileSprinting || !IsOwnerSprinting());
+	if (!WeaponData || !CurrentAmmoData)
+	{
+		return false;
+	}
+
+	const bool bHasProjectileClass = WeaponData->ProjectileClassOverride || ProjectileClass;
+	if (!bHasProjectileClass)
+	{
+		return false;
+	}
+
+	const bool bHasAmmo = bRoundChambered || CurrentMagazineAmmo > 0;
+
+	return !bIsReloading && bHasAmmo && (WeaponData->bCanFireWhileSprinting || !IsOwnerSprinting());
 }
 
 bool AEZWeaponBase::CanReload() const
 {
-	return !bIsReloading && AmmoInMagazine < MagazineSize && ReserveAmmo > 0;
+	return !bIsReloading && CurrentMagazineData && CurrentMagazineAmmo < GetMagazineCapacity() && ReserveAmmo > 0;
 }
 
 void AEZWeaponBase::StartFire()
@@ -78,9 +107,9 @@ void AEZWeaponBase::StartFire()
 
 	FireShot();
 
-	if (FireMode == EEZFireMode::FullAuto)
+	if (CurrentFireMode == EEZFireMode::FullAuto)
 	{
-		const float TimeBetweenShot = 60.0f / FMath::Max(FireRate, 1.0f);
+		const float TimeBetweenShot = 60.0f / FMath::Max(WeaponData ? WeaponData->FireRateRPM : 600.0f, 1.0f);
 
 		GetWorldTimerManager().SetTimer(AutoFireTimerHandle, this, &AEZWeaponBase::HandleAutoFire, TimeBetweenShot, true, TimeBetweenShot);
 	}	
@@ -109,33 +138,54 @@ void AEZWeaponBase::FireShot()
 		return;
 	}
 
-	AmmoInMagazine--;
-
 	const FVector SpawnLocation = MuzzlePoint->GetComponentLocation();
 	const FVector ShotDirection = GetShotDirection(SpawnLocation);
 	const FRotator SpawnRotation = ShotDirection.Rotation();
+
+	TSubclassOf<AEZProjectile> FinalProjectileClass = ProjectileClass;
+
+	if (WeaponData && WeaponData->ProjectileClassOverride)
+	{
+		FinalProjectileClass = WeaponData->ProjectileClassOverride;
+	}
 
 	FActorSpawnParameters SpawnParams;
 	SpawnParams.Owner = GetOwner();
 	SpawnParams.Instigator = Cast<APawn>(GetOwner());
 	SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 
-	AEZProjectile* Projectile = GetWorld()->SpawnActor<AEZProjectile>(ProjectileClass, SpawnLocation, SpawnRotation, SpawnParams);
+	AEZProjectile* Projectile = GetWorld()->SpawnActor<AEZProjectile>(FinalProjectileClass, SpawnLocation, SpawnRotation, SpawnParams);
 
-	if (Projectile)
+	if (Projectile && CurrentAmmoData)
 	{
-		Projectile->InitProjectile(AmmoData, ShotDirection);
+		Projectile->InitProjectile(CurrentAmmoData, ShotDirection);
 	}
 
-	CurrentSpreadAngle = FMath::Clamp(CurrentSpreadAngle + SpreadPerShot, GetEffectiveBaseSpread(), MaxSpreadAngle);
-	CurrentRecoilMultiplier = FMath::Clamp(CurrentRecoilMultiplier + RecoilKickPerShot, 1.0f, MaxRecoilMultiplier);
+	ConsumeRound();
+
+	CurrentSpreadAngle = FMath::Clamp(CurrentSpreadAngle + WeaponData->Spread.SpreadPerShot, GetEffectiveBaseSpread(), WeaponData->Spread.MaxSpreadAngle);
+	CurrentRecoilMultiplier = FMath::Clamp(CurrentRecoilMultiplier + WeaponData->Recoil.RecoilKickPerShot, 1.0f, WeaponData->Recoil.MaxRecoilMultiplier);
 	ApplyRecoil();
 
 	if (bDrawDebugShot)
 	{
 		const FVector AimPoint = GetCameraAimPoint();
+
 		DrawDebugLine(GetWorld(), SpawnLocation, SpawnLocation + ShotDirection * 3000.0f, FColor::Green, false, 1.0f, 0, 1.5f);
 		DrawDebugSphere(GetWorld(), AimPoint, 6.0f, 8, FColor::Red, false, 1.0f);
+	}
+}
+
+void AEZWeaponBase::ConsumeRound()
+{
+	if (bRoundChambered)
+	{
+		bRoundChambered = false;
+	}
+	if (CurrentMagazineAmmo > 0)
+	{
+		CurrentMagazineAmmo--;
+		bRoundChambered = true;
 	}
 }
 
@@ -149,16 +199,27 @@ void AEZWeaponBase::Reload()
 	bIsReloading = true;
 	StopFire();
 
-	GetWorldTimerManager().SetTimer(ReloadTimerHandle, this, &AEZWeaponBase::FinishReload, ReloadTime, false);
+	GetWorldTimerManager().SetTimer(ReloadTimerHandle, this, &AEZWeaponBase::FinishReload, GetReloadDuration(), false);
 }
 
 void AEZWeaponBase::FinishReload()
 {
-	const int32 MissingAmmo = MagazineSize - AmmoInMagazine;
-	const int32 AmmoToLoad = FMath::Min(MissingAmmo, ReserveAmmo);
+	const int32 Capacity = GetMagazineCapacity();
 
-	AmmoInMagazine += AmmoToLoad;
-	ReserveAmmo -= AmmoToLoad;
+	int32 AmmoNeededForMagazine = Capacity - CurrentMagazineAmmo;
+	int32 AmmoTakenFromReserve = 0;
+	
+	if (!bRoundChambered && ReserveAmmo > 0)
+	{
+		bRoundChambered = true;
+		ReserveAmmo--;
+		AmmoTakenFromReserve++;
+	}
+
+	const int32 AmmoForMagazine = FMath::Min(AmmoNeededForMagazine, ReserveAmmo);
+	CurrentMagazineAmmo = FMath::Clamp(CurrentMagazineAmmo + AmmoForMagazine, 0, Capacity);
+	ReserveAmmo -= AmmoForMagazine;
+	AmmoTakenFromReserve += AmmoForMagazine;
 
 	bIsReloading = false;
 }
@@ -173,37 +234,59 @@ void AEZWeaponBase::StopAim()
 	bIsAiming = false;
 }
 
-float AEZWeaponBase::GetAimAlpha() const
+float AEZWeaponBase::GetAimFOV() const
 {
-	const float Ergo = GetErgonomicsNormalized();
-	return FMath::Lerp(0.75, 1.25, Ergo);
+	return WeaponData ? WeaponData->ADS.AimFOV : 70.0f;
 }
 
-FVector AEZWeaponBase::GetAimDirection() const
+void AEZWeaponBase::UpdateSpread(float DeltaSeconds)
 {
-	if (const APawn* OwnerPawn = Cast<APawn>(GetOwner()))
+	if (!WeaponData)
 	{
-		if (const AController* Controller = OwnerPawn->GetController())
-		{
-			FVector ViewLocation;
-			FRotator ViewRotation;
-			Controller->GetPlayerViewPoint(ViewLocation, ViewRotation);
-			return ViewRotation.Vector();
-		}
+		return;
 	}
 
-	return MuzzlePoint->GetForwardVector();
+	const float TargetSpread = GetEffectiveBaseSpread();
+	CurrentSpreadAngle = FMath::FInterpTo(CurrentSpreadAngle, TargetSpread, DeltaSeconds, WeaponData->Spread.RecoverySpeed);
 }
 
-FVector AEZWeaponBase::GetShotDirection(const FVector& FromLocation) const
+void AEZWeaponBase::UpdateRecoil(float DeltaSeconds)
 {
-	const FVector AimPoint = GetCameraAimPoint();
-	FVector Direction = (AimPoint - FromLocation).GetSafeNormal();
+	if (!WeaponData)
+	{
+		return;
+	}
+	CurrentRecoilMultiplier = FMath::FInterpTo(CurrentRecoilMultiplier, 1.0f, DeltaSeconds, WeaponData->Recoil.RecoverySpeed);
+}
 
-	const float HalfRad = FMath::DegreesToRadians(CurrentSpreadAngle);
-	Direction = FMath::VRandCone(Direction, HalfRad, HalfRad).GetSafeNormal();
+void AEZWeaponBase::UpdateADS(float DeltaSeconds)
+{
+	if (!WeaponData)
+	{
+		return;
+	}
 
-	return Direction;
+	const float Target = bIsAiming ? 1.0f : 0.0f;
+	const float Speed = bIsAiming ? (WeaponData->ADS.EnterTime > 0.0f ? 1.0f / WeaponData->ADS.EnterTime : 999.0f) : (WeaponData->ADS.ExitTime > 0.0f ? 1.0f / WeaponData->ADS.ExitTime : 999.0f);
+
+	CurrentAimAlpha = FMath::FInterpTo(CurrentAimAlpha, Target, DeltaSeconds, Speed);
+}
+
+void AEZWeaponBase::UpdateVisualOffset(float DeltaSeconds)
+{
+	if (!WeaponVisualRoot || !WeaponData)
+	{
+		return;
+	}
+
+	const FVector TargetLocation = FMath::Lerp(FVector::ZeroVector, WeaponData->ADS.ADSOffset, CurrentAimAlpha);
+	const FRotator TargetRotation = FMath::Lerp(FRotator::ZeroRotator, WeaponData->ADS.ADSRotationOffset, CurrentAimAlpha);
+
+	const FVector NewLocation = FMath::VInterpTo(WeaponVisualRoot->GetRelativeLocation(), TargetLocation, DeltaSeconds, 12.0f);
+	const FRotator NewRotation = FMath::RInterpTo(WeaponVisualRoot->GetRelativeRotation(), TargetRotation, DeltaSeconds, 12.0f);
+
+	WeaponVisualRoot->SetRelativeLocation(NewLocation);
+	WeaponVisualRoot->SetRelativeRotation(NewRotation);
 }
 
 FVector AEZWeaponBase::GetCameraAimPoint() const
@@ -222,12 +305,11 @@ FVector AEZWeaponBase::GetCameraAimPoint() const
 
 	FVector ViewLocation;
 	FRotator ViewRotation;
-
 	Controller->GetPlayerViewPoint(ViewLocation, ViewRotation);
 
 	const FVector TraceStart = ViewLocation;
 	const FVector TraceEnd = TraceStart + ViewRotation.Vector() * 50000.0f;
-	
+
 	FHitResult Hit;
 	FCollisionQueryParams QueryParams;
 	QueryParams.AddIgnoredActor(GetOwner());
@@ -237,11 +319,28 @@ FVector AEZWeaponBase::GetCameraAimPoint() const
 	{
 		return Hit.ImpactPoint;
 	}
+
 	return TraceEnd;
+}
+
+FVector AEZWeaponBase::GetShotDirection(const FVector& FromLocation) const
+{
+	const FVector AimPoint = GetCameraAimPoint();
+	FVector Direction = (AimPoint - FromLocation).GetSafeNormal();
+
+	const float HalfRad = FMath::DegreesToRadians(CurrentSpreadAngle);
+	Direction = FMath::VRandCone(Direction, HalfRad, HalfRad).GetSafeNormal();
+
+	return Direction;
 }
 
 void AEZWeaponBase::ApplyRecoil()
 {
+	if (!WeaponData)
+	{
+		return;
+	}
+
 	APawn* OwnerPawn = Cast<APawn>(GetOwner());
 	if (!OwnerPawn)
 	{
@@ -257,19 +356,14 @@ void AEZWeaponBase::ApplyRecoil()
 
 float AEZWeaponBase::GetErgonomicsNormalized() const
 {
-	return FMath::Clamp(Ergonomics / 100.0f, 0.0f, 1.0f);
+	return WeaponData ? FMath::Clamp(WeaponData->Ergonomics / 100.0f, 0.0f, 1.0f) : 0.5f;
 }
 
 float AEZWeaponBase::GetMovementSpreadMultiplier() const
 {
 	const APawn* OwnerPawn = Cast<APawn>(GetOwner());
-	if (!OwnerPawn)
-	{
-		return 1.0f;
-	}
-
 	const ACharacter* OwnerCharacter = Cast<ACharacter>(OwnerPawn);
-	if (!OwnerCharacter)
+	if (!OwnerCharacter || !WeaponData)
 	{
 		return 1.0f;
 	}
@@ -284,23 +378,23 @@ float AEZWeaponBase::GetMovementSpreadMultiplier() const
 
 	if (MoveComp->IsFalling())
 	{
-		Multiplier *= InAirSpreadMultiplier;
+		Multiplier *= WeaponData->Spread.InAirMultiplier;
 	}
 
 	if (OwnerCharacter->bIsCrouched)
 	{
-		Multiplier *= CrouchSpreadMultiplier;
+		Multiplier *= WeaponData->Spread.CrouchMultiplier;
 	}
 
 	const FVector HorizontalVelocity = FVector(OwnerCharacter->GetVelocity().X, OwnerCharacter->GetVelocity().Y, 0.0f);
 	if (!HorizontalVelocity.IsNearlyZero())
 	{
-		Multiplier *= MovingSpreadMultiplier;
+		Multiplier *= WeaponData->Spread.MovingMultiplier;
 	}
 
 	if (bIsAiming)
 	{
-		Multiplier *= ADS_SpreadMultiplier;
+		Multiplier *= WeaponData->Spread.ADSMultiplier;
 	}
 
 	return Multiplier;
@@ -308,33 +402,42 @@ float AEZWeaponBase::GetMovementSpreadMultiplier() const
 
 float AEZWeaponBase::GetEffectiveBaseSpread() const
 {
-	const float Ergo = GetErgonomicsNormalized();
+	if (!WeaponData)
+	{
+		return 1.0f;
+	}
 
+	const float Ergo = GetErgonomicsNormalized();
 	const float ErgoSpreadMultiplier = FMath::Lerp(1.25f, 0.8f, Ergo);
-	return BaseSpreadAngle * ErgoSpreadMultiplier * GetMovementSpreadMultiplier();
+
+	return WeaponData->Spread.BaseSpreadAngle * ErgoSpreadMultiplier * GetMovementSpreadMultiplier();
 }
 
 float AEZWeaponBase::GetEffectiveVerticalRecoil() const
 {
+	if (!WeaponData)
+	{
+		return 1.0f;
+	}
+
 	const float Ergo = GetErgonomicsNormalized();
-	return VerticalRecoil * FMath::Lerp(1.25, 0.75, Ergo);
+	return WeaponData->Recoil.VerticalRecoil * FMath::Lerp(1.25, 0.75, Ergo);
 }
 
 float AEZWeaponBase::GetEffectiveHorizontalRecoil() const
 {
+	if (!WeaponData)
+	{
+		return 1.0f;
+	}
+
 	const float Ergo = GetErgonomicsNormalized();
-	return HorizontalRecoil * FMath::Lerp(1.25f, 0.75, Ergo);
+	return WeaponData->Recoil.HorizontalRecoil * FMath::Lerp(1.25f, 0.75, Ergo);
 }
 
 bool AEZWeaponBase::IsOwnerSprinting() const
 {
-	const APawn* OwnerPawn = Cast<APawn>(GetOwner());
-	if (!OwnerPawn)
-	{
-		return false;
-	}
-
-	const ACharacter* OwnerCharacter = Cast<ACharacter>(OwnerPawn);
+	const ACharacter* OwnerCharacter = Cast<ACharacter>(GetOwner());
 	if (!OwnerCharacter)
 	{
 		return false;
@@ -347,5 +450,20 @@ bool AEZWeaponBase::IsOwnerSprinting() const
 	}
 
 	return EZMoveComp->IsSprintActive();
+}
 
+int32 AEZWeaponBase::GetMagazineCapacity() const
+{
+	return CurrentMagazineData ? CurrentMagazineData->Capacity : 30;
+}
+
+float AEZWeaponBase::GetReloadDuration() const
+{
+	if (!CurrentMagazineData)
+	{
+		return 2.2f;
+	}
+
+	const bool bEmptyGun = !bRoundChambered && CurrentMagazineAmmo <= 0;
+	return bEmptyGun ? CurrentMagazineData->EmpryReloadTime : CurrentMagazineData->ReloadTime;
 }
