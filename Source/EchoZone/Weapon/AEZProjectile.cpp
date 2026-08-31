@@ -2,7 +2,7 @@
 
 
 #include "AEZProjectile.h"
-#include "EchoZone/Weapon/DataAsset/UEZAmmoDataAsset.h"
+#include "DataAsset/UEZAmmoDataAsset.h"
 #include "Components/SphereComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "GameFramework/ProjectileMovementComponent.h"

@@ -4,7 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
-#include "EchoZone/Weapon/Enum/EEZWeaponType.h"
+#include "Enum/EEZWeaponType.h"
 #include "AEZWeaponBase.generated.h"
 
 class UStaticMeshComponent;
@@ -132,6 +132,24 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = "Weapon")
 	USceneComponent* GetWeaponVisualRoot() const { return WeaponVisualRoot; }
+
+	UFUNCTION(BlueprintCallable, Category = "Weapon")
+	EEZWeaponType GetWeaponType() const;
+
+	UFUNCTION(BlueprintCallable, Category = "Weapon")
+	EEZAmmoCaliber GetWeaponCaliber() const;
+
+	UFUNCTION(BlueprintCallable, Category = "Weapon")
+	EEZReloadType GetReloadType() const;
+
+	UFUNCTION(BlueprintCallable, Category = "Weapon")
+	EEZWeaponFeedType GetFeedType() const;
+
+	UFUNCTION(BlueprintCallable, Category = "Weapon")
+	bool IsMagazineCompatible(const UEZMagazineDataAsset* MagazineData) const;
+
+	UFUNCTION(BlueprintCallable, Category = "Weapon")
+	bool IsAmmoCompatible(const UEZAmmoDataAsset* AmmoData) const;
 
 protected:
 	void InitializeFromData();

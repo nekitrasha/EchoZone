@@ -4,7 +4,13 @@
 
 #include "CoreMinimal.h"
 #include "Engine/DataAsset.h"
-#include "EchoZone/Weapon/Enum/EEZWeaponType.h"
+
+#include "Enum/EEZWeaponType.h"
+#include "Enum/EEZFireMode.h"
+#include "Enum/EEZAmmoCaliber.h"
+#include "Enum/EEZReloadType.h"
+#include "Enum/EEZWeaponFeedType.h"
+
 #include "UEZWeaponDataAsset.generated.h"
 
 class UEZAmmoDataAsset;
@@ -95,6 +101,15 @@ public:
 	EEZWeaponType WeaponType = EEZWeaponType::Rifle;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weapon")
+	EEZAmmoCaliber Caliber = EEZAmmoCaliber::Cal_545x36;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weapon")
+	EEZReloadType ReloadType = EEZReloadType::MagazineSwap;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weapon")
+	EEZWeaponFeedType = EEZWeaponFeedType::DetachableMagazine;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weapon")
 	TArray<EEZFireMode> SupportedFireModes;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weapon")
@@ -110,7 +125,7 @@ public:
 	float Ergonomics = 50.0f;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weapon")
-	TSubclassOf<AEZProjectile> ProjectileClassOverride = nullptr;
+	TSubclassOf<AEZProjectile> ProjectileClassOverride;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weapon")
 	TObjectPtr<UEZAmmoDataAsset> DefaultAmmo = nullptr;

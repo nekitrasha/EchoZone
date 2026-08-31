@@ -3,9 +3,9 @@
 
 #include "AEZWeaponBase.h"
 #include "AEZProjectile.h"
-#include "EchoZone/Weapon/DataAsset/UEZAmmoDataAsset.h"
-#include "EchoZone/Weapon/DataAsset/UEZWeaponDataAsset.h"
-#include "EchoZone/Weapon/DataAsset/UEZMagazineDataAsset.h"
+#include "DataAsset/UEZAmmoDataAsset.h"
+#include "DataAsset/UEZWeaponDataAsset.h"
+#include "DataAsset/UEZMagazineDataAsset.h"
 #include "EchoZone/Character/Component/UEZCharacterMovementComponent.h"
 
 #include "Components/StaticMeshComponent.h"
@@ -55,6 +55,35 @@ void AEZWeaponBase::Tick(float DeltaSeconds)
 	UpdateVisualOffset(DeltaSeconds);
 }
 
+EEZWeaponType AEZWeaponBase::GetWeaponType() const
+{
+	return WeaponData ? WeaponData->WeaponType : EEZWeaponType::None;
+}
+
+EEZAmmoCaliber AEZWeaponBase::GetWeaponCaliber() const
+{
+	return WeaponData ? WeaponData->Caliber : EEZAmmoCaliber::None;
+}
+
+EEZReloadType AEZWeaponBase::GetReloadType() const
+{
+	return WeaponData ? WeaponData->ReloadType : EEZReloadType::None;
+}
+
+EEZWeaponFeedType AEZWeaponBase::GetFeedType() const
+{
+	return WeaponData ? WeaponData->FeedType : EEZWeaponFeedType::None;
+}
+
+bool AEZWeaponBase::IsMagazineCompatible(const UEZMagazineDataAsset* MagazineData) const
+{
+	return WeaponData && MagazineData && WeaponData->Caliber == MagazineData->Caliber;
+}
+
+bool AEZWeaponBase::IsAmmoCompatable(const UEZAmmoDataAsset* AmmoData) const
+{
+	return WeaponData && AmmoData && WeaponData->Caliber == AmmaData->Caliver;
+}
 void AEZWeaponBase::InitializeFromData()
 {
 	if (!WeaponData)
@@ -65,7 +94,18 @@ void AEZWeaponBase::InitializeFromData()
 
 	CurrentAmmoData = WeaponData->DefaultAmmo;
 	CurrentMagazineData = WeaponData->DefaultMagazine;
-	CurrentFireMode = WeaponData->SupportedFireModes.Num() > 0 ? WeaponData->DefaultFireMode : EEZFireMode::SemiAuto;
+
+	CurrentFireMode = EEZFireMode::SemiAuto;
+
+	if (WeaponData->SupportedFireModes.Num() > 0)
+	{
+		CurrentFireMode = WeaponData->SupportedFireMode.Contains(WeaponData->DefaultFireMode) ? WeaponData->DefaultFireMode : WeaponData->SupportedFireModes[0];
+	}
+	else
+	{
+		CurrentFireMode = WeaponData->DefaultFireMode;
+	}
+
 	CurrentMagazineAmmo = GetMagazineCapacity();
 	bRoundChambered = CurrentMagazineAmmo > 0;
 	CurrentSpreadAngle = WeaponData->Spread.BaseSpreadAngle;

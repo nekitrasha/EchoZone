@@ -4,7 +4,7 @@
 #include "EchoZone/Interaction/UEZInteractComponent.h"
 #include "Component/UEZHealthComponent.h"
 #include "EchoZone/Interaction/UEZInteractWidget.h"
-#include "AEZWeaponBase.h"
+#include "EchoZone/Weapon/AEZWeaponBase.h"
 
 #include "Camera/CameraComponent.h"
 #include "Components/SceneComponent.h"

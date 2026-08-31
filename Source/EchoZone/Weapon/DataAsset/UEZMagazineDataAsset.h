@@ -4,11 +4,11 @@
 
 #include "CoreMinimal.h"
 #include "Engine/DataAsset.h"
+
+#include "Enum/EEZAmmoCaliber.h"
+
 #include "UEZMagazineDataAsset.generated.h"
 
-/**
- * 
- */
 UCLASS(BlueprintType)
 class ECHOZONE_API UEZMagazineDataAsset : public UPrimaryDataAsset
 {
@@ -17,6 +17,9 @@ class ECHOZONE_API UEZMagazineDataAsset : public UPrimaryDataAsset
 public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Magazine")
 	FText MagazineName;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Magazine")
+	EEZAmmoCaliber Caliber = EEZAmmoCaliber::Cal_545x39;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Magazine")
 	int32 Capacity = 30;

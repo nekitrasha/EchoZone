@@ -2,14 +2,8 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
 #include "EEZWeaponType.generated.h"
-
-UENUM(BlueprintType)
-enum class EEZFireMode : uint8
-{
-	SemiAuto UMETA(DisplayName = "Semi Auto"),
-	FullAuto UMETA(DisplayName = "Full Auto")
-};
 
 UENUM(BlueprintType)
 enum class EEZWeaponType : uint8

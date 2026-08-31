@@ -4,6 +4,9 @@
 
 #include "CoreMinimal.h"
 #include "Engine/DataAsset.h"
+
+#include "Enum/EEZAmmoCaliber.h"
+
 #include "UEZAmmoDataAsset.generated.h"
 
 /**
@@ -15,6 +18,12 @@ class ECHOZONE_API UEZAmmoDataAsset : public UPrimaryDataAsset
 	GENERATED_BODY()
 	
 public:
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Ammo")
+	FText AmmoName;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Ammo")
+	EEZAmmoCaliber Caliber = EEZAmmoCaliber::Cal_545x39;
+
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Ballistic")
 	float Damage = 35.0f;
 
