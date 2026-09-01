@@ -5,7 +5,7 @@
 #include "CoreMinimal.h"
 #include "Engine/DataAsset.h"
 
-#include "Enum/EEZAmmoCaliber.h"
+#include "EchoZone/Weapon/Enum/EEZAmmoCaliber.h"
 
 #include "UEZAmmoDataAsset.generated.h"
 

@@ -80,9 +80,9 @@ bool AEZWeaponBase::IsMagazineCompatible(const UEZMagazineDataAsset* MagazineDat
 	return WeaponData && MagazineData && WeaponData->Caliber == MagazineData->Caliber;
 }
 
-bool AEZWeaponBase::IsAmmoCompatable(const UEZAmmoDataAsset* AmmoData) const
+bool AEZWeaponBase::IsAmmoCompatible(const UEZAmmoDataAsset* AmmoData) const
 {
-	return WeaponData && AmmoData && WeaponData->Caliber == AmmaData->Caliver;
+	return WeaponData && AmmoData && WeaponData->Caliber == AmmoData->Caliber;
 }
 void AEZWeaponBase::InitializeFromData()
 {
@@ -99,7 +99,7 @@ void AEZWeaponBase::InitializeFromData()
 
 	if (WeaponData->SupportedFireModes.Num() > 0)
 	{
-		CurrentFireMode = WeaponData->SupportedFireMode.Contains(WeaponData->DefaultFireMode) ? WeaponData->DefaultFireMode : WeaponData->SupportedFireModes[0];
+		CurrentFireMode = WeaponData->SupportedFireModes.Contains(WeaponData->DefaultFireMode) ? WeaponData->DefaultFireMode : WeaponData->SupportedFireModes[0];
 	}
 	else
 	{

@@ -5,11 +5,11 @@
 #include "CoreMinimal.h"
 #include "Engine/DataAsset.h"
 
-#include "Enum/EEZWeaponType.h"
-#include "Enum/EEZFireMode.h"
-#include "Enum/EEZAmmoCaliber.h"
-#include "Enum/EEZReloadType.h"
-#include "Enum/EEZWeaponFeedType.h"
+#include "EchoZone/Weapon/Enum/EEZAmmoCaliber.h"
+#include "EchoZone/Weapon/Enum/EEZFireMode.h"
+#include "EchoZone/Weapon/Enum/EEZReloadType.h"
+#include "EchoZone/Weapon/Enum/EEZWeaponFeedType.h"
+#include "EchoZone/Weapon/Enum/EEZWeaponType.h"
 
 #include "UEZWeaponDataAsset.generated.h"
 
@@ -101,13 +101,13 @@ public:
 	EEZWeaponType WeaponType = EEZWeaponType::Rifle;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weapon")
-	EEZAmmoCaliber Caliber = EEZAmmoCaliber::Cal_545x36;
+	EEZAmmoCaliber Caliber = EEZAmmoCaliber::Cal_545x39;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weapon")
 	EEZReloadType ReloadType = EEZReloadType::MagazineSwap;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weapon")
-	EEZWeaponFeedType = EEZWeaponFeedType::DetachableMagazine;
+	EEZWeaponFeedType FeedType = EEZWeaponFeedType::DetachableMagazine;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weapon")
 	TArray<EEZFireMode> SupportedFireModes;

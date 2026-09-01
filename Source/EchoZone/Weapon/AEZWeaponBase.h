@@ -4,7 +4,13 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
+
 #include "Enum/EEZWeaponType.h"
+#include "Enum/EEZFireMode.h"
+#include "Enum/EEZAmmoCaliber.h"
+#include "Enum/EEZReloadType.h"
+#include "Enum/EEZWeaponFeedType.h"
+
 #include "AEZWeaponBase.generated.h"
 
 class UStaticMeshComponent;
@@ -123,9 +129,6 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = "Weapon")
 	bool IsAiming() const { return bIsAiming; }
-
-	UFUNCTION(BlueprintCallable, Category = "Weapon")
-	float GetAimAlpha() const;
 
 	UFUNCTION(BlueprintCallable, Category = "Weapon")
 	float GetAimFOV() const;
