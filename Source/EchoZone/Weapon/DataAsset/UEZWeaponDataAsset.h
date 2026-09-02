@@ -89,6 +89,7 @@ struct FEZWeaponADSSettings
 	FRotator ADSRotationOffset = FRotator::ZeroRotator;
 };
 
+UCLASS(BlueprintType)
 class ECHOZONE_API UEZWeaponDataAsset : public UPrimaryDataAsset
 {
 	GENERATED_BODY()
