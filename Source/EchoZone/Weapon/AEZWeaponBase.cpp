@@ -84,6 +84,38 @@ bool AEZWeaponBase::IsAmmoCompatible(const UEZAmmoDataAsset* AmmoData) const
 {
 	return WeaponData && AmmoData && WeaponData->Caliber == AmmoData->Caliber;
 }
+
+int32 AEZWeaponBase::GetCurrentMagazineAmmo() const
+{
+	return InsertedMagazine.IsValid() ? InsertedMagazine.CurrentAmmo : 0;
+}
+
+int32 AEZWeaponBase::GetAmmoReadyToFire() const
+{
+	return GetCurrentMagazineAmmo() + (bRoundChambered ? 1 : 0);
+}
+
+bool AEZWeaponBase::HasInsertedMagazine() const
+{
+	return InsertedMagazine.IsValid();
+}
+
+bool AEZWeaponBase::HasSpareMagazine() const
+{
+	return FindBestMagazineIndex() != INDEX_NONE;
+}
+
+void AEZWeaponBase::SwitchFireMode()
+{
+	if (!WeaponData || WeaponData->SupportedFireModes.Num() == 0)
+	{
+		return;
+	}
+
+
+}
+
+
 void AEZWeaponBase::InitializeFromData()
 {
 	if (!WeaponData)
@@ -93,8 +125,7 @@ void AEZWeaponBase::InitializeFromData()
 	}
 
 	CurrentAmmoData = WeaponData->DefaultAmmo;
-	CurrentMagazineData = WeaponData->DefaultMagazine;
-
+	
 	CurrentFireMode = EEZFireMode::SemiAuto;
 
 	if (WeaponData->SupportedFireModes.Num() > 0)
@@ -106,8 +137,15 @@ void AEZWeaponBase::InitializeFromData()
 		CurrentFireMode = WeaponData->DefaultFireMode;
 	}
 
-	CurrentMagazineAmmo = GetMagazineCapacity();
-	bRoundChambered = CurrentMagazineAmmo > 0;
+	if (WeaponData->DefaultMagazine)
+	{
+		InsertedMagazine.MagazineData = WeaponData->DefaultMagazine;
+		InsertedMagazine.CurrentAmmo = WeaponData->DefaultMagazine->Capacity;
+	}
+
+	bRoundChambered = false;
+	TryChamberNextRound();
+
 	CurrentSpreadAngle = WeaponData->Spread.BaseSpreadAngle;
 	CurrentRecoilMultiplier = 1.0f;
 	CurrentAimAlpha = 0.0f;
@@ -126,14 +164,33 @@ bool AEZWeaponBase::CanFire() const
 		return false;
 	}
 
-	const bool bHasAmmo = bRoundChambered || CurrentMagazineAmmo > 0;
-
-	return !bIsReloading && bHasAmmo && (WeaponData->bCanFireWhileSprinting || !IsOwnerSprinting());
+	return !bIsReloading && bRoundChambered && (WeaponData->bCanFireWhileSprinting || !IsOwnerSprinting());
 }
 
 bool AEZWeaponBase::CanReload() const
 {
-	return !bIsReloading && CurrentMagazineData && CurrentMagazineAmmo < GetMagazineCapacity() && ReserveAmmo > 0;
+	if (bIsReloading)
+	{
+		return false;
+	}
+
+	if (!HasSpareMagazine())
+	{
+		return false;
+	}
+
+	if (!InsertedMagazine.IsValid())
+	{
+		return true;
+	}
+
+	if (InsertedMagazine.CurrentAmmo <= 0 && !bRoundChambered)
+	{
+		return true;
+	}
+
+	const int32 Capacity = InsertedMagazine.GetCapacity();
+	return InsertedMagazine.CurrentAmmo < Capacity;
 }
 
 void AEZWeaponBase::StartFire()
@@ -183,10 +240,14 @@ void AEZWeaponBase::FireShot()
 	const FRotator SpawnRotation = ShotDirection.Rotation();
 
 	TSubclassOf<AEZProjectile> FinalProjectileClass = ProjectileClass;
-
 	if (WeaponData && WeaponData->ProjectileClassOverride)
 	{
 		FinalProjectileClass = WeaponData->ProjectileClassOverride;
+	}
+
+	if (!FinalProjectileClass)
+	{
+		return;
 	}
 
 	FActorSpawnParameters SpawnParams;
@@ -194,7 +255,12 @@ void AEZWeaponBase::FireShot()
 	SpawnParams.Instigator = Cast<APawn>(GetOwner());
 	SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 
-	AEZProjectile* Projectile = GetWorld()->SpawnActor<AEZProjectile>(FinalProjectileClass, SpawnLocation, SpawnRotation, SpawnParams);
+	AEZProjectile* Projectile = GetWorld()->SpawnActor<AEZProjectile>(
+		FinalProjectileClass,
+		SpawnLocation,
+		SpawnRotation,
+		SpawnParams
+	);
 
 	if (Projectile && CurrentAmmoData)
 	{
@@ -203,30 +269,92 @@ void AEZWeaponBase::FireShot()
 
 	ConsumeRound();
 
-	CurrentSpreadAngle = FMath::Clamp(CurrentSpreadAngle + WeaponData->Spread.SpreadPerShot, GetEffectiveBaseSpread(), WeaponData->Spread.MaxSpreadAngle);
-	CurrentRecoilMultiplier = FMath::Clamp(CurrentRecoilMultiplier + WeaponData->Recoil.RecoilKickPerShot, 1.0f, WeaponData->Recoil.MaxRecoilMultiplier);
+	CurrentSpreadAngle = FMath::Clamp(
+		CurrentSpreadAngle + WeaponData->Spread.SpreadPerShot,
+		GetEffectiveBaseSpread(),
+		WeaponData->Spread.MaxSpreadAngle
+	);
+
+	CurrentRecoilMultiplier = FMath::Clamp(
+		CurrentRecoilMultiplier + WeaponData->Recoil.RecoilKickPerShot,
+		1.0f,
+		WeaponData->Recoil.MaxRecoilMultiplier
+	);
+
 	ApplyRecoil();
-
-	if (bDrawDebugShot)
-	{
-		const FVector AimPoint = GetCameraAimPoint();
-
-		DrawDebugLine(GetWorld(), SpawnLocation, SpawnLocation + ShotDirection * 3000.0f, FColor::Green, false, 1.0f, 0, 1.5f);
-		DrawDebugSphere(GetWorld(), AimPoint, 6.0f, 8, FColor::Red, false, 1.0f);
-	}
 }
 
 void AEZWeaponBase::ConsumeRound()
 {
-	if (bRoundChambered)
+	if (!bRoundChambered)
 	{
-		bRoundChambered = false;
+		return;
 	}
-	if (CurrentMagazineAmmo > 0)
+
+	bRoundChambered = false;
+	TryChamberNextRound();
+}
+
+bool AEZWeaponBase::TryChamberNextRound()
+{
+	if (!InsertedMagazine.IsValid())
 	{
-		CurrentMagazineAmmo--;
-		bRoundChambered = true;
+		return false;
 	}
+
+	if (InsertedMagazine.CurrentAmmo <= 0)
+	{
+		return false;
+	}
+
+	InsertedMagazine.CurrentAmmo--;
+	bRoundChambered = true;
+	return true;
+}
+
+int32 AEZWeaponBase::FindBestMagazineIndex() const
+{
+	if (!WeaponData)
+	{
+		return INDEX_NONE;
+	}
+
+	int32 BestIndex = INDEX_NONE;
+	int32 BestAmmo = -1;
+
+	for (int32 i = 0; i < MagazineInventory.Num(); i++)
+	{
+		const FEZMagazineInstance& Candidate = MagazineInventory[i];
+		if (!Candidate.IsValid() || Candidate.CurrentAmmo <= 0)
+		{
+			continue;
+		}
+
+		if (Candidate.MagazineData->Caliber != WeaponData->Caliber)
+		{
+			continue;
+		}
+
+		if (Candidate.CurrentAmmo > BestAmmo)
+		{
+			BestAmmo = Candidate.CurrentAmmo;
+			BestIndex = i;
+		}
+	}
+
+	return BestIndex;
+}
+
+void AEZWeaponBase::InsertMagazine(const FEZMagazineInstance& NewMagazine)
+{
+	InsertedMagazine = NewMagazine;
+}
+
+FEZMagazineInstance AEZWeaponBase::RemoveInsertedMagazine()
+{
+	FEZMagazineInstance OldMagazine = InsertedMagazine;
+	InsertedMagazine = FEZMagazineInstance();
+	return OldMagazine;
 }
 
 void AEZWeaponBase::Reload()
@@ -244,22 +372,23 @@ void AEZWeaponBase::Reload()
 
 void AEZWeaponBase::FinishReload()
 {
-	const int32 Capacity = GetMagazineCapacity();
-
-	int32 AmmoNeededForMagazine = Capacity - CurrentMagazineAmmo;
-	int32 AmmoTakenFromReserve = 0;
-	
-	if (!bRoundChambered && ReserveAmmo > 0)
+	if (InsertedMagazine.IsValid())
 	{
-		bRoundChambered = true;
-		ReserveAmmo--;
-		AmmoTakenFromReserve++;
+		MagazineInventory.Add(InsertedMagazine);
+		InsertedMagazine = FEZMagazineInstance();
 	}
 
-	const int32 AmmoForMagazine = FMath::Min(AmmoNeededForMagazine, ReserveAmmo);
-	CurrentMagazineAmmo = FMath::Clamp(CurrentMagazineAmmo + AmmoForMagazine, 0, Capacity);
-	ReserveAmmo -= AmmoForMagazine;
-	AmmoTakenFromReserve += AmmoForMagazine;
+	const int32 NewMagIndex = FindBestMagazineIndex();
+	if (NewMagIndex != INDEX_NONE)
+	{
+		InsertedMagazine = MagazineInventory[NewMagIndex];
+		MagazineInventory.RemoveAt(NewMagIndex);
+	}
+
+	if (!bRoundChambered)
+	{
+		TryChamberNextRound();
+	}
 
 	bIsReloading = false;
 }
@@ -494,16 +623,16 @@ bool AEZWeaponBase::IsOwnerSprinting() const
 
 int32 AEZWeaponBase::GetMagazineCapacity() const
 {
-	return CurrentMagazineData ? CurrentMagazineData->Capacity : 30;
+	return InsertedMagazine.GetCapacity();
 }
 
 float AEZWeaponBase::GetReloadDuration() const
 {
-	if (!CurrentMagazineData)
+	if (!InsertedMagazine.IsValid() || !InsertedMagazine.MagazineData)
 	{
 		return 2.2f;
 	}
 
-	const bool bEmptyGun = !bRoundChambered && CurrentMagazineAmmo <= 0;
-	return bEmptyGun ? CurrentMagazineData->EmpryReloadTime : CurrentMagazineData->ReloadTime;
+	const bool bEmptyGun = !bRoundChambered && InsertedMagazine.CurrentAmmo <= 0;
+	return bEmptyGun ? InsertedMagazine.MagazineData->EmpryReloadTime : InsertedMagazine.MagazineData->ReloadTime;
 }

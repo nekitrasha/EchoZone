@@ -10,6 +10,7 @@
 #include "Enum/EEZAmmoCaliber.h"
 #include "Enum/EEZReloadType.h"
 #include "Enum/EEZWeaponFeedType.h"
+#include "Struct/FEZMagazineInstance.h"
 
 #include "AEZWeaponBase.generated.h"
 
@@ -55,19 +56,16 @@ protected:
 	TObjectPtr<UEZWeaponDataAsset> WeaponData;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Weapon")
-	TObjectPtr<UEZMagazineDataAsset> CurrentMagazineData;
-
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Weapon")
 	TObjectPtr<UEZAmmoDataAsset> CurrentAmmoData;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Weapon")
 	EEZFireMode CurrentFireMode = EEZFireMode::SemiAuto;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Weapon")
-	int32 CurrentMagazineAmmo = 0;
+	FEZMagazineInstance InsertedMagazine;
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Weapon")
-	int32 ReserveAmmo = 90;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapon")
+	TArray<FEZMagazineInstance> MagazineInventory;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Weapon")
 	bool bRoundChambered = false;
@@ -81,6 +79,15 @@ protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Weapon")
 	bool bIsAiming = false;
 
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Weapon|State")
+	bool bWasEmptyClick = false;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Weapon|State")
+	int32 BurstShotsRemaining = 0;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Weapon|State")
+	bool bTacticalReloadInProgress = false;
+
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Weapon")
 	float CurrentSpreadAngle = 0.0f;
 
@@ -89,6 +96,24 @@ protected:
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Weapon")
 	float CurrentAimAlpha = 0.0f;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Weapon|Visual")
+	FVector VisualLocationOffset = FVector::ZeroVector;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Weapon|Visual")
+	FRotator VisualRotationOffset = FRotator::ZeroRotator;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Weapon|Visual")
+	FVector TargetVisualLocationOffset = FVector::ZeroVector;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Weapon|Visual")
+	FRotator TargetVisualRotationOffset = FRotator::ZeroRotator;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Weapon|Visual")
+	FVector SwayLocationOffset = FVector::ZeroVector;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Weapon|Visual")
+	FRotator SwayRotationOffset = FRotator::ZeroRotator;
 	
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Debug")
 	bool bDrawDebugShot = false;
@@ -106,6 +131,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Weapon")
 	virtual void Reload();
 
+	UFUNCTION(BlueprintCallable, Category = "Weapon|Reload")
+	void CancelReload();
+
 	UFUNCTION(BlueprintCallable, Category = "Weapon")
 	virtual void StartAim();
 
@@ -117,12 +145,6 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = "Weapon")
 	bool CanReload() const;
-
-	UFUNCTION(BlueprintCallable, Category = "Weapon")
-	int32 GetAmmoInMagazine() const { return CurrentMagazineAmmo + (bRoundChambered ? 1 : 0); }
-
-	UFUNCTION(BlueprintCallable, Category = "Weapon")
-	int32  GetReserveAmmo() const { return ReserveAmmo; }
 
 	UFUNCTION(BlueprintCallable, Category = "Weapon")
 	bool IsReloading() const { return bIsReloading; }
@@ -148,11 +170,53 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Weapon")
 	EEZWeaponFeedType GetFeedType() const;
 
+	UFUNCTION(BlueprintCallable, Category = "Weapon|Fire")
+	EEZFireMode GetCurrentFireMode() const { return CurrentFireMode; }
+
 	UFUNCTION(BlueprintCallable, Category = "Weapon")
 	bool IsMagazineCompatible(const UEZMagazineDataAsset* MagazineData) const;
 
 	UFUNCTION(BlueprintCallable, Category = "Weapon")
 	bool IsAmmoCompatible(const UEZAmmoDataAsset* AmmoData) const;
+
+	UFUNCTION(BlueprintCallable, Category = "Weapon")
+	int32 GetCurrentMagazineAmmo() const;
+
+	UFUNCTION(BlueprintCallable, Category = "Weapon")
+	int32 GetAmmoReadyToFire() const;
+
+	UFUNCTION(BlueprintCallable, Category = "Weapon")
+	bool HasInsertedMagazine() const;
+
+	UFUNCTION(BlueprintCallable, Category = "Weapon")
+	bool HasSpareMagazine() const;
+
+	UFUNCTION(BlueprintCallable, Category = "Weapon|Fire")
+	void SwitchFireMode();
+
+	UFUNCTION(BlueprintCallable, Category = "Weapon|Ammo")
+	bool HasRoundChambered() const { return bRoundChambered; }
+
+	UFUNCTION(BlueprintImplementableEvent, Category = "Weapon|FX")
+	void BP_OnEmptyClick();
+
+	UFUNCTION(BlueprintImplementableEvent, Category = "Weapon|FX")
+	void BP_OnReloadStarted(bool bTacticalReload);
+
+	UFUNCTION(BlueprintImplementableEvent, Category = "Weapon|FX")
+	void BP_OnReloadCanceled();
+
+	UFUNCTION(BlueprintImplementableEvent, Category = "Weapon|FX")
+	void BP_OnReloadFinished();
+
+	UFUNCTION(BlueprintImplementableEvent, Category = "Weapon|FX")
+	void BP_OnFireModeChanged(EEZFireMode NewMode);
+
+	UFUNCTION(BlueprintImplementableEvent, Category = "Weapon|FX")
+	void BP_OnVisualRecoil();
+
+	UFUNCTION(BlueprintImplementableEvent, Category = "Weapon|FX")
+	void BP_OnShotFired();
 
 protected:
 	void InitializeFromData();
@@ -160,6 +224,20 @@ protected:
 	void HandleAutoFire();
 	void FinishReload();
 	void ConsumeRound();
+
+	void HandleFireModeShot();
+	void HandleBurstProgress();
+	bool CanShootCurrentMode() const;
+	bool IsFireModeSupported(EEZFireMode FireMode) const;
+
+	void PlayEmptyClick();
+	bool IsTacticalReload() const;
+	bool NeedsChamberingAfterReload() const;
+
+	void UpdateVisualRecoil(float DeltaSeconds);
+	void AddVisualRecoil();
+	void UpdateWeaponSway(float DeltaSeconds);
+	void UpdateADSAlignment(float DeltaSeconds);
 	
 	void UpdateSpread(float DeltaSeconds);
 	void UpdateRecoil(float DeltaSeconds);
@@ -180,4 +258,9 @@ protected:
 
 	int32 GetMagazineCapacity() const;
 	float GetReloadDuration()  const;
+
+	bool TryChamberNextRound();
+	int32 FindBestMagazineIndex() const;
+	void InsertMagazine(const FEZMagazineInstance& NewMagazine);
+	FEZMagazineInstance RemoveInsertedMagazine();
 };

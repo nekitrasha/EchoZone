@@ -1,89 +1,149 @@
-// Fill out your copyright notice in the Description page of Project Settings.
-
-
 #include "AEZProjectile.h"
-#include "DataAsset/UEZAmmoDataAsset.h"
+#include "EchoZone/Weapon/DataAsset/UEZAmmoDataAsset.h"
+
 #include "Components/SphereComponent.h"
 #include "Components/StaticMeshComponent.h"
-#include "GameFramework/ProjectileMovementComponent.h"
-#include "Kismet/GameplayStatics.h"
 #include "DrawDebugHelpers.h"
+#include "Kismet/GameplayStatics.h"
+#include "Engine/World.h"
 
-// Sets default values
 AEZProjectile::AEZProjectile()
 {
- 	// Set this actor to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
-	PrimaryActorTick.bCanEverTick = false;
+	PrimaryActorTick.bCanEverTick = true;
 
 	CollisionComponent = CreateDefaultSubobject<USphereComponent>(TEXT("CollisionComponent"));
-	CollisionComponent->InitSphereRadius(6.0f);
-	CollisionComponent->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
+	RootComponent = CollisionComponent;
+	CollisionComponent->InitSphereRadius(2.0f);
+	CollisionComponent->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
 	CollisionComponent->SetCollisionObjectType(ECC_WorldDynamic);
 	CollisionComponent->SetCollisionResponseToAllChannels(ECR_Block);
-	RootComponent = CollisionComponent;
 
-	MeshComponent = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("MeshComponent"));
-	MeshComponent->SetupAttachment(RootComponent);
-	MeshComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-
-	ProjectileMovement = CreateDefaultSubobject<UProjectileMovementComponent>(TEXT("ProjectileMovement"));
-	ProjectileMovement->bRotationFollowsVelocity = true;
-	ProjectileMovement->bShouldBounce = false;
-	ProjectileMovement->ProjectileGravityScale = 0.0f;
-
-	InitialLifeSpan = 5.0f;
-
+	ProjectileMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("ProjectileMesh"));
+	ProjectileMesh->SetupAttachment(CollisionComponent);
+	ProjectileMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 }
 
-// Called when the game starts or when spawned
 void AEZProjectile::BeginPlay()
 {
 	Super::BeginPlay();
-	
-	CollisionComponent->OnComponentHit.AddDynamic(this, &AEZProjectile::OnProjectileHit);
-	
-	if (AActor* OwnerActor = GetOwner())
-	{
-		CollisionComponent->IgnoreActorWhenMoving(OwnerActor, true);
-	}
 }
 
-void AEZProjectile::InitProjectile(const UEZAmmoDataAsset* InAmmoData, const FVector& Direction)
+void AEZProjectile::Tick(float DeltaSeconds)
 {
-	if (!InAmmoData || !ProjectileMovement)
-	{
-		return;
-	}
+	Super::Tick(DeltaSeconds);
 
-	AmmoData = InAmmoData;
-
-	ProjectileMovement->InitialSpeed = AmmoData->InitialSpeed;
-	ProjectileMovement->MaxSpeed = AmmoData->MaxSpeed;
-	ProjectileMovement->ProjectileGravityScale = AmmoData->GravityScale;
-	ProjectileMovement->Velocity = Direction.GetSafeNormal() * AmmoData->InitialSpeed;
-
-	SetActorRotation(Direction.Rotation());
-	SetLifeSpan(AmmoData->LifeSeconds);
-}
-
-void AEZProjectile::OnProjectileHit(UPrimitiveComponent* HitComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit)
-{
-	if (!OtherActor || OtherActor == this || OtherActor == GetOwner() || !AmmoData)
-	{
-		return;
-	}
-
-	UGameplayStatics::ApplyPointDamage(OtherActor, AmmoData->Damage, GetActorForwardVector(), Hit, GetInstigatorController(), this, nullptr);
-
-	if (bDrawDebugImpact)
-	{
-		DrawDebugSphere(GetWorld(), Hit.ImpactPoint, 8.0f, 8, FColor::Red, false, 1.5f);
-	}
-
-	if (bDestroyOnHit)
+	CurrentLifetime += DeltaSeconds;
+	if (CurrentLifetime >= MaxLifetime)
 	{
 		Destroy();
+		return;
+	}
+
+	UpdateBallistics(DeltaSeconds);
+	MoveWithSweep(DeltaSeconds);
+}
+
+void AEZProjectile::InitProjectile(const UEZAmmoDataAsset* AmmoData, const FVector& ShotDirection)
+{
+	if (!AmmoData)
+	{
+		Destroy();
+		return;
+	}
+
+	const FVector Direction = ShotDirection.GetSafeNormal();
+
+	CurrentVelocity = Direction * AmmoData->MuzzleVelocity;
+	GravityScale = AmmoData->GravityScale;
+	DragCoefficient = AmmoData->DragCoefficient;
+	Damage = AmmoData->Damage;
+	Penetration = AmmoData->Penetration;
+	MaxLifetime = AmmoData->MaxLifetime;
+
+	SetActorRotation(Direction.Rotation());
+}
+
+void AEZProjectile::UpdateBallistics(float DeltaSeconds)
+{
+	const float GravityZ = GetWorld() ? GetWorld()->GetGravityZ() : -980.0f;
+
+	CurrentVelocity += FVector(0.0f, 0.0f, GravityZ * GravityScale) * DeltaSeconds;
+
+	const float Speed = CurrentVelocity.Size();
+	if (Speed > KINDA_SMALL_NUMBER)
+	{
+		const FVector DragForce = -CurrentVelocity.GetSafeNormal() * Speed * DragCoefficient;
+		CurrentVelocity += DragForce * DeltaSeconds;
 	}
 }
 
+void AEZProjectile::MoveWithSweep(float DeltaSeconds)
+{
+	const FVector TraceStart = GetActorLocation();
+	const FVector DeltaMove = CurrentVelocity * DeltaSeconds;
+	const FVector TraceEnd = TraceStart + DeltaMove;
 
+	FHitResult Hit;
+	FCollisionQueryParams QueryParams;
+	QueryParams.AddIgnoredActor(this);
+	QueryParams.AddIgnoredActor(GetOwner());
+	QueryParams.AddIgnoredActor(GetInstigator());
+
+	const bool bHit = GetWorld()->SweepSingleByChannel(
+		Hit,
+		TraceStart,
+		TraceEnd,
+		FQuat::Identity,
+		ECC_Visibility,
+		FCollisionShape::MakeSphere(CollisionComponent->GetScaledSphereRadius()),
+		QueryParams
+	);
+
+	if (bDrawDebugTrajectory)
+	{
+		DrawDebugLine(GetWorld(), TraceStart, TraceEnd, bHit ? FColor::Red : FColor::Green, false, 2.0f, 0, 1.0f);
+	}
+
+	if (bHit)
+	{
+		SetActorLocation(Hit.ImpactPoint);
+		ProcessHit(Hit, TraceStart, TraceEnd);
+		return;
+	}
+
+	SetActorLocation(TraceEnd);
+
+	if (!CurrentVelocity.IsNearlyZero())
+	{
+		SetActorRotation(CurrentVelocity.GetSafeNormal().Rotation());
+	}
+}
+
+void AEZProjectile::ProcessHit(const FHitResult& Hit, const FVector& TraceStart, const FVector& TraceEnd)
+{
+	AActor* HitActor = Hit.GetActor();
+	if (HitActor)
+	{
+		UGameplayStatics::ApplyPointDamage(
+			HitActor,
+			Damage,
+			CurrentVelocity.GetSafeNormal(),
+			Hit,
+			GetInstigatorController(),
+			this,
+			nullptr
+		);
+	}
+
+	if (bDrawDebugTrajectory)
+	{
+		DrawDebugSphere(GetWorld(), Hit.ImpactPoint, 6.0f, 8, FColor::Yellow, false, 3.0f);
+	}
+
+	Destroy();
+}
+
+float AEZProjectile::GetSpeed() const
+{
+	return CurrentVelocity.Size();
+}

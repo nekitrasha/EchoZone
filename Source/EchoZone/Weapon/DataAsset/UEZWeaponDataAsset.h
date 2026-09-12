@@ -66,6 +66,39 @@ struct FEZWeaponRecoilSettings
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Recoil")
 	float RecoverySpeed = 4.0f;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Recoil")
+	float VisualKickLocation = 2.5f;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Recoil")
+	float VisualKickRotationPitch = 2.0f;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Recoil")
+	float VisualKickRotationYaw = 0.6f;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Recoil")
+	float VisualRecoverySpeed = 14.0f;
+};
+
+USTRUCT(BlueprintType)
+struct FEZWeaponSwaySettings
+{
+	GENERATED_BODY()
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Sway")
+	float LocationSwayMultiplier = 0.015f;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Sway")
+	float RotationSwayMultiplier = 0.05f;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Sway")
+	float InterpSpeed = 10.0f;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Sway")
+	float MaxLocationOffset = 2.5f;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Sway")
+	float MaxRotationOffset = 3.0f;
 };
 
 USTRUCT(BlueprintType)
@@ -87,6 +120,9 @@ struct FEZWeaponADSSettings
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "ADS")
 	FRotator ADSRotationOffset = FRotator::ZeroRotator;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "ADS")
+	FName ADSSocketName = TEXT("ADS");
 };
 
 UCLASS(BlueprintType)
@@ -135,10 +171,22 @@ public:
 	TObjectPtr<UEZMagazineDataAsset> DefaultMagazine = nullptr;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weapon")
+	int32 BurstCount = 3;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weapon")
+	bool bAllowReloadCancel = true;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weapon")
+	bool bSupportsTacticalReload = true;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weapon")
 	FEZWeaponSpreadSettings Spread;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weapon")
 	FEZWeaponRecoilSettings Recoil;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weapon")
+	FEZWeaponSwaySettings Sway;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weapon")
 	FEZWeaponADSSettings ADS;

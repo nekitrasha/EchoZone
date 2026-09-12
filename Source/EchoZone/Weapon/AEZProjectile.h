@@ -15,12 +15,10 @@ class ECHOZONE_API AEZProjectile : public AActor
 {
 	GENERATED_BODY()
 	
-public:	
-	// Sets default values for this actor's properties
+public:
 	AEZProjectile();
 
 protected:
-	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
 	virtual void Tick(float DeltaSeconds) override;
 
@@ -31,20 +29,37 @@ protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
 	UStaticMeshComponent* ProjectileMesh;
 
-	UPROPERTY(BlueprintReadOnly, Category = "Ammo")
-	TObjectPtr<const UEZAmmoDataAsset> AmmoData;
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Projectile")
+	FVector CurrentVelocity = FVector::ZeroVector;
 
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Projectile")
-	bool bDestroyOnHit = true;
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Projectile")
+	float GravityScale = 1.0f;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Projectile")
+	float DragCoefficient = 0.05f;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Projectile")
+	float Damage = 35.0f;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Projectile")
+	float Penetration = 20.0f;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Projectile")
+	float MaxLifetime = 6.0f;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Projectile")
+	float CurrentLifetime = 0.0f;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Debug")
-	bool bDrawDebugImpact = false;
+	bool bDrawDebugTrajectory = false;
 
-public:	
-	UFUNCTION(BlueprintCallable, Category = "Projectile")
-	void InitProjectile(const UEZAmmoDataAsset* InAmmoData, const FVector& Direction);
+public:
+	void InitProjectile(const UEZAmmoDataAsset* AmmoData, const FVector& ShotDirection);
 
 protected:
-	UFUNCTION()
-	void OnProjectileHit(UPrimitiveComponent* HitComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit);
+	void UpdateBallistics(float DeltaSeconds);
+	void MoveWithSweep(float DeltaSeconds);
+	void ProcessHit(const FHitResult& Hit, const FVector& TraceStart, const FVector& TraceEnd);
+
+	float GetSpeed() const;
 };
