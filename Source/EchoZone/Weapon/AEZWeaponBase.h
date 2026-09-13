@@ -158,5 +158,112 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Weapon")
 	USceneComponent* GetWeaponVisualRoot() const { return WeaponVisualRoot; }
 
+	UFUNCTION(BlueprintCallable, Category = "Weapon")
+	UStaticMeshComponent* GetWeaponMesh() const { return WeaponMesh; }
 
+	UFUNCTION(BlueprintCallable, Category = "Weapon")
+	USceneComponent* GetMuzzlePoint() const { return MuzzlePoint; }
+
+	UFUNCTION(BlueprintCallable, Category = "Weapon")
+	UEZWeaponDataAsset* GetWeaponData() const { return WeaponData; }
+
+	UFUNCTION(BlueprintCallable, Category = "Weapon")
+	EEZWeaponType GetWeaponType() const;
+
+	UFUNCTION(BlueprintCallable, Category = "Weapon")
+	EEZAmmoCaliber GetWeaponCaliber() const;
+
+	UFUNCTION(BlueprintCallable, Category = "Weapon")
+	EEZReloadType GetReloadType() const;
+
+	UFUNCTION(BlueprintCallable, Category = "Weapon")
+	EEZWeaponFeedType GetFeedType() const;
+
+	UFUNCTION(BlueprintCallable, Category = "Weapon|Fire")
+	EEZFireMode GetCurrentFireMode() const { return CurrentFireMode; }
+
+	UFUNCTION(BlueprintCallable, Category = "Weapon")
+	bool IsMagazineCompatible(const UEZMagazineDataAsset* MagazineData) const;
+
+	UFUNCTION(BlueprintCallable, Category = "Weapon")
+	bool IsAmmoCompatible(const UEZAmmoDataAsset* AmmoData) const;
+
+	UFUNCTION(BlueprintCallable, Category = "Weapon")
+	int32 GetCurrentMagazineAmmo() const;
+
+	UFUNCTION(BlueprintCallable, Category = "Weapon")
+	int32 GetAmmoReadyToFire() const;
+
+	UFUNCTION(BlueprintCallable, Category = "Weapon")
+	int32 GetMagazineCapacity() const;
+
+	UFUNCTION(BlueprintCallable, Category = "Weapon")
+	bool HasInsertedMagazine() const;
+
+	UFUNCTION(BlueprintCallable, Category = "Weapon")
+	bool HasSpareMagazine() const;
+
+	UFUNCTION(BlueprintCallable, Category = "Weapon|Fire")
+	void SwitchFireMode();
+
+	UFUNCTION(BlueprintCallable, Category = "Weapon|Ammo")
+	bool HasRoundChambered() const { return bRoundChambered; }
+
+	UFUNCTION(BlueprintImplementableEvent, Category = "Weapon|FX")
+	void BP_OnEmptyClick();
+
+	UFUNCTION(BlueprintImplementableEvent, Category = "Weapon|FX")
+	void BP_OnReloadStarted(bool bTacticalReload);
+
+	UFUNCTION(BlueprintImplementableEvent, Category = "Weapon|FX")
+	void BP_OnReloadCanceled();
+
+	UFUNCTION(BlueprintImplementableEvent, Category = "Weapon|FX")
+	void BP_OnReloadFinished();
+
+	UFUNCTION(BlueprintImplementableEvent, Category = "Weapon|FX")
+	void BP_OnFireModeChanged(EEZFireMode NewMode);
+
+	UFUNCTION(BlueprintImplementableEvent, Category = "Weapon|FX")
+	void BP_OnShotFired();
+
+protected:
+	void InitializeFromData();
+	void FireShot();
+	void HandleAutoFire();
+	void FinishReload();
+	void ConsumeRound();
+
+	void HandleFireModeShot();
+	void HandleBurstProgress();
+	bool CanShootCurrentMode() const;
+	bool IsFireModeSupported(EEZFireMode FireMode) const;
+
+	void PlayEmptyClick();
+	bool IsTacticalReload() const;
+	bool NeedsChamberingAfterReload() const;
+
+	void UpdateSpread(float DeltaSeconds);
+	void UpdateRecoil(float DeltaSeconds);
+	void UpdateADS(float DeltaSeconds);
+
+	FVector GetCameraAimPoint() const;
+	FVector GetShotDirection(const FVector& FromLocation) const;
+
+	void ApplyRecoil();
+
+	float GetErgonomicsNormalized() const;
+	float GetMovementSpreadMultiplier() const;
+	float GetEffectiveBaseSpread() const;
+	float GetEffectiveVerticalRecoil() const;
+	float GetEffectiveHorizontalRecoil() const;
+	bool IsOwnerSprinting() const;
+
+	float GetSecondsPerShot() const;
+	float GetReloadDuration() const;
+
+	bool TryChamberedNextRound();
+	int32 FindBestMagazineIndex() const;
+	void InsertMagazine(const FEZMagazineInstance& NewMagazine);
+	FEZMagazineInstance RemoveInsertedMagazine();
 };
