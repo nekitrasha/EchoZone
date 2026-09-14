@@ -75,7 +75,7 @@ protected:
 	bool bIsReloading = false;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Weapon")
-	bool bTriggeredHeld = false;
+	bool bTriggerHeld = false;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Weapon")
 	bool bIsAiming = false;
