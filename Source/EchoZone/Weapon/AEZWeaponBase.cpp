@@ -148,7 +148,7 @@ void AEZWeaponBase::InitializeFromData()
 	}
 
 	bRoundChambered = false;
-	TryChamberedNextRound();
+	TryChamberNextRound();
 
 	CurrentSpreadAngle = WeaponData->Spread.BaseSpreadAngle;
 	CurrentRecoilMultiplier = 1.0f;
@@ -374,4 +374,234 @@ void AEZWeaponBase::FireShot()
 
 	OnShotFiredEvent.Broadcast();
 	BP_OnShotFired();
+}
+
+void AEZWeaponBase::ConsumeRound()
+{
+	if (!bRoundChambered)
+	{
+		return;
+	}
+
+	bRoundChambered = false;
+	TryChamberNextRound();
+}
+
+bool AEZWeaponBase::TryChamberNextRound()
+{
+	if (!InsertedMagazine.IsValid())
+	{
+		return false;
+	}
+
+	if (InsertedMagazine.CurrentAmmo <= 0)
+	{
+		return false;
+	}
+
+	InsertedMagazine.CurrentAmmo--;
+	bRoundChambered = true;
+	return true;
+}
+
+int32 AEZWeaponBase::FindBestMagazineIndex() const
+{
+	if (!WeaponData)
+	{
+		return INDEX_NONE;
+	}
+
+	int32 BestIndex = INDEX_NONE;
+	int32 BestAmmo = -1;
+
+	for (int32 i = 0; i < MagazineInventory.Num(); i++)
+	{
+		const FEZMagazineInstance& Candidate = MagazineInventory[i];
+		if (!Candidate.IsValid() || Candidate.CurrentAmmo <= 0 || !Candidate.MagazineData)
+		{
+			continue;
+		}
+
+		if (Candidate.MagazineData->Caliber != WeaponData->Caliber)
+		{
+			continue;
+		}
+
+		if (Candidate.CurrentAmmo > BestAmmo)
+		{
+			BestAmmo = Candidate.CurrentAmmo;
+			BestIndex = i;
+		}
+	}
+
+	return BestIndex;
+}
+
+void AEZWeaponBase::InsertMagazine(const FEZMagazineInstance& NewMagazine)
+{
+	InsertedMagazine = NewMagazine;
+}
+
+FEZMagazineInstance AEZWeaponBase::RemoveInsertedMagazine()
+{
+	FEZMagazineInstance OldMagazine = InsertedMagazine;
+	InsertedMagazine = FEZMagazineInstance();
+	return OldMagazine;
+}
+
+void AEZWeaponBase::Reload()
+{
+	if (!CanReload())
+	{
+		return;
+	}
+
+	bIsReloading = true;
+	bTacticalReloadInProgress = IsTacticalReload();
+	StopFire();
+
+	OnReloadStartedEvent.Broadcast(bTacticalReloadInProgress);
+	BP_OnReloadStarted(bTacticalReloadInProgress);
+
+	GetWorldTimerManager().SetTimer(ReloadTimerHandle, this, &AEZWeaponBase::FinishReload, GetReloadDuration(), false);
+}
+
+void AEZWeaponBase::CancelReload()
+{
+	if (!IsReloading)
+	{
+		return;
+	}
+
+	if (!WeaponData || !WeaponData->bAllowReloadCancel)
+	{
+		return;
+	}
+
+	GetWorldTimerManager().ClearTimer(ReloadTimerHandle);
+	bIsReloading = false;
+	bTacticalReloadInProgress = false;
+
+	OnReloadCanceledEvent.Broadcast();
+	BP_OnReloadCanceled();
+}
+
+void AEZWeaponBase::FinishReload()
+{
+	if (InsertedMagazine.IsValid())
+	{
+		MagazineInventory.Add(InsertedMagazine);
+		InsertedMagazine = FEZMagazineInstance();
+	}
+
+	const int32 NewMagIndex = FindBestMagazineIndex();
+	if (NewMagIndex != INDEX_NONE)
+	{
+		InsertedMagazine = MagazineInventory[NewMagIndex];
+		MagazineInventory.RemoveAt(NewMagIndex);
+	}
+
+	if (NeedsChamberingAfterReload())
+	{
+		TryChamberNextRound();
+	}
+
+	bIsReloading = false;
+	bTacticalReloadInProgress = false;
+
+	OnReloadFinishedEvent.Broadcast();
+	BP_OnReloadFinished();
+}
+
+void AEZWeaponBase::StartAim()
+{
+	bIsAiming = true;
+}
+
+void AEZWeaponBase::StopAim()
+{
+	bIsAiming = false;
+}
+
+float AEZWeaponBase::GetAimFOV() const
+{
+	return WeaponData ? WeaponData->ADS.AimFOV : 70.0f;
+}
+
+bool AEZWeaponBase::CanShootCurrentMode() const
+{
+	return CurrentFireMode != EEZFireMode::Safe;
+}
+
+bool AEZWeaponBase::IsFireModeSupported(EEZFireMode FireMode) const
+{
+	return WeaponData && WeaponData->SupportedFireModes.Contains(FireMode);
+}
+
+void AEZWeaponBase::PlayEmptyClick()
+{
+	if (bWasEmptyClick)
+	{
+		return;
+	}
+
+	bWasEmptyClick = true;
+
+	OnEmptyClickEvent.Broadcast();
+	BP_OnEmptyClick();
+
+	GetWorldTimerManager().SetTimer(EmptyClickCooldownHandle, [this]() {bWasEmptyClick = false; }, 0.15f, false);
+}
+
+bool AEZWeaponBase::IsTacticalReload() const
+{
+	return InsertedMagazine.IsValid() && InsertedMagazine.CurrentAmmo > 0 && bRoundChambered;
+}
+
+bool AEZWeaponBase::NeedsChamberingAfterReload() const
+{
+	return !bRoundChambered;
+}
+
+void AEZWeaponBase::UpdateSpread(float DeltaSeconds)
+{
+	if (!WeaponData)
+	{
+		return;
+	}
+
+	const float TargetSpread = GetEffectiveBaseSpread();
+	CurrentSpreadAngle = FMath::FInterpTo(CurrentSpreadAngle, TargetSpread, DeltaSeconds, WeaponData->Spread.RecoverySpeed);
+}
+
+void AEZWeaponBase::UpdateRecoil(float DeltaSeconds)
+{
+	if (!WeaponData)
+	{
+		return;
+	}
+
+	CurrentRecoilMultiplier = FMath::FInterpTo(CurrentRecoilMultiplier, 1.0f, DeltaSeconds, WeaponData->Recoil.RecoverySpeed);
+}
+
+void AEZWeaponBase::UpdateADS(float DeltaSeconds)
+{
+	if (!WeaponData)
+	{
+		return;
+	}
+
+	const float Target = bIsAiming ? 1.0f : 0.0f;
+	const float Speed = bIsAiming ? (WeaponData->ADS.EnterTime > 0.0f ? 1.0f / WeaponData->ADS.EnterTime : 999.0f) : (WeaponData->ADS.ExitTime > 0.0f ? 1.0f / WeaponData->ADS.ExitTime : 999.0f);
+	
+	CurrentAimAlpha = FMath::FInterpTo(CurrentAimAlpha, Target, DeltaSeconds, Speed);
+}
+
+FVector AEZWeaponBase::GetCameraAimPoint() const
+{
+	const APawn* OwnerPawn = Cast<APawn>(GetOwner());
+	if (!OwnerPawn || !GetWorld())
+	{
+		return MuzzlePoint ? MuzzlePoint->GetComponentLocation() + MuzzlePoint->GetForwardVector() * 50000.0f : FVector::ZeroVector;
+	}
 }

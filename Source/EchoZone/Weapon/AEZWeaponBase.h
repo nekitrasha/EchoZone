@@ -116,6 +116,9 @@ public:
 	FEZWeaponReloadStartedSignature OnReloadStartedEvent;
 
 	UPROPERTY(BlueprintAssignable, Category = "Weapon|Events")
+	FEZWeaponSimpleSignature OnReloadCanceledEvent;
+
+	UPROPERTY(BlueprintAssignable, Category = "Weapon|Events")
 	FEZWeaponSimpleSignature OnReloadFinishedEvent;
 
 	UPROPERTY(BlueprintAssignable, Category = "Weapon|Events")
@@ -262,7 +265,7 @@ protected:
 	float GetSecondsPerShot() const;
 	float GetReloadDuration() const;
 
-	bool TryChamberedNextRound();
+	bool TryChamberNextRound();
 	int32 FindBestMagazineIndex() const;
 	void InsertMagazine(const FEZMagazineInstance& NewMagazine);
 	FEZMagazineInstance RemoveInsertedMagazine();
