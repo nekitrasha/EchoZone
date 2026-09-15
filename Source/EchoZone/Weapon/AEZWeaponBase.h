@@ -255,7 +255,7 @@ protected:
 
 	void ApplyRecoil();
 
-	float GetErgonomicsNormalized() const;
+	float GetErgonomicNormalized() const;
 	float GetMovementSpreadMultiplier() const;
 	float GetEffectiveBaseSpread() const;
 	float GetEffectiveVerticalRecoil() const;

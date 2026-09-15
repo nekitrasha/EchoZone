@@ -604,4 +604,179 @@ FVector AEZWeaponBase::GetCameraAimPoint() const
 	{
 		return MuzzlePoint ? MuzzlePoint->GetComponentLocation() + MuzzlePoint->GetForwardVector() * 50000.0f : FVector::ZeroVector;
 	}
+
+	const AController* Controller = OwnerPawn->GetController();
+	if (!Controller)
+	{
+		return MuzzlePoint ? MuzzlePoint->GetComponentLocation() + MuzzlePoint->GetForwardVector() * 50000.0f : FVector::ZeroVector;
+	}
+
+	FVector ViewLocation;
+	FRotator ViewRotation;
+	Controller->GetPlayerViewPoint(ViewLocation, ViewRotation);
+
+	const FVector TraceStart = ViewLocation;
+	const FVector TraceEnd = TraceStart + ViewRotation.Vector() * 50000.0f;
+
+	FHitResult Hit;
+	FCollisionQueryParams QueryParams;
+	QueryParams.AddIgnoredActor(GetOwner());
+	QueryParams.AddIgnoredActor(this);
+
+	if (GetWorld()->LineTraceSingleByChannel(Hit, TraceStart, TraceEnd, ECC_Visibility, QueryParams))
+	{
+		return Hit.ImpactPoint;
+	}
+
+	return TraceEnd;
+}
+
+FVector AEZWeaponBase::GetShotDirection(const FVector& FromLocation) const
+{
+	const FVector AimPoint = GetCameraAimPoint();
+	FVector Direction = (AimPoint - FromLocation).GetSafeNormal();
+
+	const float ConeHalfRad = FMath::DegreesToRadians(CurrentSpreadAngle * 0.5f);
+	Direction = FMath::VRandCone(Direction, ConeHalfRad, ConeHalfRad).GetSafeNormal();
+
+	return Direction;
+}
+
+void AEZWeaponBase::ApplyRecoil()
+{
+	if (!WeaponData)
+	{
+		return;
+	}
+
+	APawn* OwnerPawn = Cast<APawn>(GetOwner());
+	if (!OwnerPawn)
+	{
+		return;
+	}
+
+	const float PitchRecoil = GetEffectiveVerticalRecoil() * CurrentRecoilMultiplier;
+	const float YawRecoil = FMath::FRandRange(-GetEffectiveHorizontalRecoil(), GetEffectiveHorizontalRecoil()) * CurrentRecoilMultiplier;
+
+	OwnerPawn->AddControllerPitchInput(-PitchRecoil);
+	OwnerPawn->AddControllerYawInput(YawRecoil);
+}
+
+float AEZWeaponBase::GetErgonomicNormalized() const
+{
+	return WeaponData ? FMath::Clamp(WeaponData->Ergonomics / 100.0f, 0.0f, 1.0f) : 0.5f;
+}
+
+float AEZWeaponBase::GetMovementSpreadMultiplier() const
+{
+	const APawn* OwnerPawn = Cast<APawn>(GetOwner());
+	const ACharacter* OwnerCharacter = Cast<ACharacter>(OwnerPawn);
+	if (!OwnerCharacter || !WeaponData)
+	{
+		return 1.0f;
+	}
+
+	const UCharacterMovementComponent* MoveComp = OwnerCharacter->GetCharacterMovement();
+	if (!MoveComp)
+	{
+		return 1.0f;
+	}
+
+	float Multiplier = 1.0f;
+
+	if (MoveComp->IsFalling())
+	{
+		Multiplier *= WeaponData->Spread.InAirMultiplier;
+	}
+
+	if (OwnerCharacter->bIsCrouched)
+	{
+		Multiplier *= WeaponData->Spread.CrouchMultiplier;
+	}
+
+	const FVector HorizontalVelocity(OwnerCharacter->GetVelocity().X, OwnerCharacter->GetVelocity().Y, 0.0f);
+	if (!HorizontalVelocity.IsNearlyZero())
+	{
+		Multiplier *= WeaponData->Spread.MovingMultiplier;
+	}
+
+	if (bIsAiming)
+	{
+		Multiplier *= WeaponData->Spread.ADSMultiplier;
+	}
+
+	return Multiplier;
+}
+
+float AEZWeaponBase::GetEffectiveBaseSpread() const
+{
+	if (!WeaponData)
+	{
+		return 1.0f;
+	}
+
+	const float Ergo = GetErgonomicNormalized();
+	const float ErgoSpreadMultiplier = FMath::Lerp(1.25f, 0.8f, Ergo);
+
+	return WeaponData->Spread.BaseSpreadAngle * ErgoSpreadMultiplier * GetMovementSpreadMultiplier();
+}
+
+float AEZWeaponBase::GetEffectiveVerticalRecoil() const
+{
+	if (!WeaponData)
+	{
+		return 1.0f;
+	}
+
+	const float Ergo = GetErgonomicNormalized();
+	return WeaponData->Recoil.VerticalRecoil * FMath::Lerp(1.25f, 0.75f, Ergo);
+}
+
+float AEZWeaponBase::GetEffectiveHorizontalRecoil() const
+{
+	if (!WeaponData)
+	{
+		return 1.0f;
+	}
+
+	const float Ergo = GetErgonomicNormalized();
+	return WeaponData->Recoil.HorizontalRecoil * FMath::Lerp(1.25f, 0.75f, Ergo);
+}
+
+bool AEZWeaponBase::IsOwnerSprinting() const
+{
+	const ACharacter* OwnerCharacter = Cast<ACharacter>(GetOwner());
+	if (!OwnerCharacter)
+	{
+		return false;
+	}
+
+	const UEZCharacterMovementComponent* EZMoveComp = Cast<UEZCharacterMovementComponent>(OwnerCharacter->GetCharacterMovement());
+	if (!EZMoveComp)
+	{
+		return false;
+	}
+
+	return EZMoveComp->IsSprintActive();
+}
+
+float AEZWeaponBase::GetSecondsPerShot() const
+{
+	if (!WeaponData || WeaponData->FireRateRPM <= 0.0f)
+	{
+		return 0.1f;
+	}
+
+	return 60.0f / WeaponData->FireRateRPM;
+}
+
+float AEZWeaponBase::GetReloadDuration() const
+{
+	if (!InsertedMagazine.IsValid() || !InsertedMagazine.MagazineData)
+	{
+		return 2.2f;
+	}
+
+	const bool bEmptyGun = !bRoundChambered && InsertedMagazine.CurrentAmmo <= 0;
+	return bEmptyGun ? InsertedMagazine.MagazineData->EmpryReloadTime : InsertedMagazine.MagazineData->ReloadTime;
 }
