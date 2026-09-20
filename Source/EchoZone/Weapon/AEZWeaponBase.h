@@ -9,6 +9,7 @@
 #include "Enum/EEZReloadType.h"
 #include "Enum/EEZWeaponFeedType.h"
 #include "Struct/FEZMagazineInstance.h"
+#include "EchoZone/Character/Health/Types/EZHealthModifiers.h"
 
 #include "AEZWeaponBase.generated.h"
 
@@ -100,6 +101,9 @@ protected:
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Debug")
 	bool bDrawDebugShot = false;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Weapon|Health")
+	FEZHealthModifiers CachedHealthModifiers;
 
 	FTimerHandle AutoFireTimerHandle;
 	FTimerHandle ReloadTimerHandle;
@@ -211,6 +215,21 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = "Weapon|Ammo")
 	bool HasRoundChambered() const { return bRoundChambered; }
+
+	UFUNCTION(BlueprintCallable, Category = "Weapon|Health")
+	void ApplyHealthModifiers(const FEZHealthModifiers& NewModifiers);
+
+	UFUNCTION(BlueprintCallable, Category = "Weapon|Health")
+	bool CanEquipByHealth() const;
+
+	UFUNCTION(BlueprintCallable, Category = "Weapon|Health")
+	bool CanAimByHealth() const;
+
+	UFUNCTION(BlueprintCallable, Category = "Weapon|Health")
+	void StopAllWeaponActions();
+
+	UFUNCTION(BlueprintCallable, Category = "Weapon|Health")
+	void DropFromOwner();
 
 	UFUNCTION(BlueprintImplementableEvent, Category = "Weapon|FX")
 	void BP_OnEmptyClick();

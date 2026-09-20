@@ -46,7 +46,7 @@ protected:
 	float CurrentAimAlpha = 0.0f;
 
 	UPROPERTY()
-	FVector VisualLoactionOffset = FVector::ZeroVector;
+	FVector VisualLocationOffset = FVector::ZeroVector;
 
 	UPROPERTY()
 	FRotator VisualRotationOffset = FRotator::ZeroRotator;
@@ -76,7 +76,7 @@ protected:
 	void UpdateAimAlpha(float DeltaTime);
 	void UpdateVisualRecoil(float DeltaTime);
 	void UpdateWeaponSway(float DeltaTime);
-	void UpdateADSAligment(float DeltaTime);
+	void UpdateADSAlignment(float DeltaTime);
 	void ApplyPresentationOffset();
 	void ResetPresentation();
 

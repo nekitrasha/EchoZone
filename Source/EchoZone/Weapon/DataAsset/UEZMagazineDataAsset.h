@@ -28,5 +28,5 @@ public:
 	float ReloadTime = 2.2f;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Magazine")
-	float EmpryReloadTime = 2.8f;
+	float EmptyReloadTime = 2.8f;
 };

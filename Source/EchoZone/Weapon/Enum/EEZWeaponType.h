@@ -15,7 +15,7 @@ enum class EEZWeaponType : uint8
 	Rifle UMETA(DisplayName = "Rifle"),
 	Carbine UMETA(DisplayName = "Carbine"),
 	DMR UMETA(DisplayName = "DMR"),
-	Sniper UMETA(DisplayName = "Shiper"),
+	Sniper UMETA(DisplayName = "Sniper"),
 	LMG UMETA(DisplayName = "LMG"),
 	Launcher UMETA(DisplayName = "Launcher"),
 	Special UMETA(DisplayName = "Special")

@@ -59,7 +59,6 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Stamina|Debug")
 	bool bEnableStaminaDebug = false;
 
-	// Расход на склоне
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Stamina|Slope")
 	bool bUseSlopeStaminaModifier = true;
 
@@ -69,7 +68,6 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Stamina|Slope", meta = (ClampMin = "0.0"))
 	float DownhillDrainReduction = 0.35f;
 
-	// Реген на склоне
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Stamina|Slope", meta = (ClampMin = "0.0"))
 	float UphillRecoveryReduction = 0.50f;
 
@@ -93,6 +91,25 @@ protected:
 	UEZCharacterMovementComponent* CachedMovementComponent = nullptr;
 
 protected:
+	UPROPERTY(Transient)
+	float ExternalMaxStaminaMultiplier = 1.0f;
+
+	UPROPERTY(Transient)
+	float ExternalDrainMultiplier = 1.0f;
+
+	UPROPERTY(Transient)
+	float ExternalRecoveryMultiplier = 1.0f;
+
+	UPROPERTY(Transient)
+	bool bExternalRecoveryBlocked = false;
+
+	UPROPERTY(Transient)
+	bool bFreeSprint = false;
+
+	UPROPERTY(Transient)
+	bool bManualSprintState = false;
+
+protected:
 	void UpdateStamina(float DeltaTime);
 	void ApplySprintBlock(bool bBlocked);
 	bool CanRecoverStamina() const;
@@ -108,7 +125,7 @@ public:
 	float GetCurrentStamina() const { return CurrentStamina; }
 
 	UFUNCTION(BlueprintCallable, Category = "Stamina")
-	float GetMaxStamina() const { return MaxStamina; }
+	float GetMaxStamina() const { return GetEffectiveMaxStamina(); }
 
 	UFUNCTION(BlueprintCallable, Category = "Stamina")
 	float GetStaminaNormalized() const;
@@ -127,4 +144,25 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = "Stamina")
 	void SetCurrentStamina(float NewValue);
+
+	UFUNCTION(BlueprintCallable, Category = "Stamina")
+	void SetSprinting(bool bNewSprinting);
+
+	UFUNCTION(BlueprintCallable, Category = "Stamina|External")
+	void SetExternalMaxStaminaMultiplier(float Value);
+
+	UFUNCTION(BlueprintCallable, Category = "Stamina|External")
+	void SetExternalDrainMultiplier(float Value);
+
+	UFUNCTION(BlueprintCallable, Category = "Stamina|External")
+	void SetExternalRecoveryMultiplier(float Value);
+
+	UFUNCTION(BlueprintCallable, Category = "Stamina|External")
+	void SetStaminaRecoveryBlocked(bool bBlocked);
+
+	UFUNCTION(BlueprintCallable, Category = "Stamina|External")
+	void SetFreeSprint(bool bEnabled);
+
+	UFUNCTION(BlueprintCallable, Category = "Stamina|External")
+	float GetEffectiveMaxStamina() const;
 };

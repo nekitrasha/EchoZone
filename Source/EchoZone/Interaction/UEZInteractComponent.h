@@ -44,6 +44,9 @@ protected:
 	UPROPERTY(BlueprintReadOnly, Category = "Interaction")
 	AActor* CurrentInteractable = nullptr;
 
+	UPROPERTY(Transient, BlueprintReadOnly, Category = "Interaction")
+	bool bInteractionBlocked = false;
+
 protected:
 	void UpdateInteractable();
 	AActor* FindInterectableActor() const;
@@ -60,4 +63,7 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = "Interactable")
 	FText GetCurrentInteractText() const;
+
+	UFUNCTION(BlueprintCallable, Category = "Interactable")
+	void SetInteractionBlocked(bool bBlocked) { bInteractionBlocked = bBlocked; }
 };

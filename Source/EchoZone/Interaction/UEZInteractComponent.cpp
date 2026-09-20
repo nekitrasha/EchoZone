@@ -89,6 +89,10 @@ AActor* UEZInteractComponent::FindInterectableActor() const
 
 void UEZInteractComponent::TryInteract()
 {
+	if (bInteractionBlocked)
+	{
+		return;
+	}
 	if (!CurrentInteractable)
 	{
 		return;

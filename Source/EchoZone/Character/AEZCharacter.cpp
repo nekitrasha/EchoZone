@@ -3,7 +3,7 @@
 #include "Component/UEZStaminaComponent.h"
 #include "Component/UEZWeaponPresentationComponent.h"
 #include "EchoZone/Interaction/UEZInteractComponent.h"
-#include "Component/UEZHealthComponent.h"
+#include "EchoZone/Character/Health/Components/UEZHealthComponent.h"
 #include "EchoZone/Interaction/UEZInteractWidget.h"
 #include "EchoZone/Weapon/AEZWeaponBase.h"
 #include "EchoZone/Weapon/DataAsset/UEZWeaponDataAsset.h"
@@ -95,9 +95,20 @@ void AEZCharacter::BeginPlay()
 		}
 	}
 
+	if (HealthComponent)
+	{
+		HealthComponent->OnDeath.AddDynamic(this, &AEZCharacter::HandleHealthDeath);
+		HealthComponent->OnDropWeaponRequested.AddDynamic(this, &AEZCharacter::HandleDropWeaponRequested);
+		HealthComponent->OnScreamRequested.AddDynamic(this, &AEZCharacter::HandleScreamRequested);
+		HealthComponent->OnModifiersChanged.AddDynamic(this, &AEZCharacter::HandleHealthModifiersChanged);
+	}
+
 	UpdateInteractWidget();
 	EquipStarterWeapon();
 	SyncWeaponPresentation();
+
+	SyncHealthState();
+	ApplyHealthModifiersToCharacter();
 }
 
 void AEZCharacter::Tick(float DeltaTime)
@@ -107,6 +118,9 @@ void AEZCharacter::Tick(float DeltaTime)
 	UpdateFreeLook(DeltaTime);
 	UpdateView(DeltaTime);
 	UpdateWeaponFOV(DeltaTime);
+
+	SyncHealthState();
+	ApplyHealthModifiersToCharacter();
 }
 
 void AEZCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
@@ -225,8 +239,8 @@ void AEZCharacter::Move(const FInputActionValue& Value)
 	const FRotator ControlRotation = Controller->GetControlRotation();
 	const FRotator YawRotation(0.0f, ControlRotation.Yaw, 0.0f);
 
-	const FVector ForwardDirection = FRotationMatrix(YawRotation).GetUnitAxes(EAxis::X);
-	const FVector RightDirection = FRotationMatrix(YawRotation).GetUnitAxes(EAxis::Y);
+	const FVector ForwardDirection = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::X);
+	const FVector RightDirection = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::Y);
 
 	AddMovementInput(ForwardDirection, MoveInput.Y);
 	AddMovementInput(RightDirection, MoveInput.X);
@@ -236,23 +250,41 @@ void AEZCharacter::Look(const FInputActionValue& Value)
 {
 	const FVector2D LookAxis = Value.Get<FVector2D>();
 
+	float SensitivityMultiplier = 1.0f;
+	if (HealthComponent)
+	{
+		SensitivityMultiplier = HealthComponent->GetHealthModifiers().LookSensitivityMultiplier;
+	}
+
+	const FVector2D FinalLook = LookAxis * SensitivityMultiplier;
+
 	if (bIsFreeLooking)
 	{
-		FreeLookYaw = FMath::Clamp(FreeLookYaw + LookAxis.X, -FreeLookYawLimit, FreeLookYawLimit);
-		FreeLookPitch = FMath::Clamp(FreeLookPitch + LookAxis.Y, -FreeLookPitchDownLimit, FreeLookPitchUpLimit);
+		FreeLookYaw = FMath::Clamp(FreeLookYaw + FinalLook.X, -FreeLookYawLimit, FreeLookYawLimit);
+		FreeLookPitch = FMath::Clamp(FreeLookPitch + FinalLook.Y, -FreeLookPitchDownLimit, FreeLookPitchUpLimit);
 	}
 	else
 	{
-		AddControllerYawInput(LookAxis.X);
-		AddControllerPitchInput(LookAxis.Y);
+		AddControllerYawInput(FinalLook.X);
+		AddControllerPitchInput(FinalLook.Y);
 	}
 }
 
 void AEZCharacter::StartSprint()
 {
+	if (HealthComponent && !HealthComponent->GetHealthModifiers().bCanSprint)
+	{
+		return;
+	}
+
 	if (UEZCharacterMovementComponent* EZMoveComp = GetUEZMovementComponent())
 	{
 		EZMoveComp->SetSprintIntent(true);
+	}
+
+	if (StaminaComponent)
+	{
+		StaminaComponent->SetSprinting(true);
 	}
 }
 
@@ -262,6 +294,11 @@ void AEZCharacter::StopSprint()
 	{
 		EZMoveComp->SetSprintIntent(false);
 	}
+
+	if (StaminaComponent)
+	{
+		StaminaComponent->SetSprinting(false);
+	}
 }
 
 void AEZCharacter::StartCrouch()
@@ -269,6 +306,11 @@ void AEZCharacter::StartCrouch()
 	if (UEZCharacterMovementComponent* EZMoveComp = GetUEZMovementComponent())
 	{
 		EZMoveComp->SetSprintIntent(false);
+	}
+
+	if (StaminaComponent)
+	{
+		StaminaComponent->SetSprinting(false);
 	}
 
 	if (!bIsCrouched)
@@ -295,6 +337,11 @@ void AEZCharacter::StartLeanLeft()
 		EZMoveComp->SetSprintIntent(false);
 	}
 
+	if (StaminaComponent)
+	{
+		StaminaComponent->SetSprinting(false);
+	}
+
 	UpdateLeanState();
 	UpdateMovementFlags();
 }
@@ -316,6 +363,11 @@ void AEZCharacter::StartLeanRight()
 		EZMoveComp->SetSprintIntent(false);
 	}
 
+	if (StaminaComponent)
+	{
+		StaminaComponent->SetSprinting(false);
+	}
+
 	UpdateLeanState();
 	UpdateMovementFlags();
 }
@@ -334,6 +386,11 @@ void AEZCharacter::StartFreeLook()
 	if (UEZCharacterMovementComponent* EZMoveComp = GetUEZMovementComponent())
 	{
 		EZMoveComp->SetSprintIntent(false);
+	}
+
+	if (StaminaComponent)
+	{
+		StaminaComponent->SetSprinting(false);
 	}
 
 	UpdateMovementFlags();
@@ -363,6 +420,11 @@ void AEZCharacter::DecreaseWalkSpeedStep()
 
 void AEZCharacter::Interact()
 {
+	if (!CanInteractByHealth())
+	{
+		return;
+	}
+
 	if (InteractComponent)
 	{
 		InteractComponent->TryInteract();
@@ -515,7 +577,7 @@ void AEZCharacter::UpdateInteractWidget()
 		return;
 	}
 
-	if (InteractComponent->HasInteractable())
+	if (InteractComponent->HasInteractable() && CanInteractByHealth())
 	{
 		const FText ActionText = InteractComponent->GetCurrentInteractText();
 		const FText FinalText = FText::Format(FText::FromString(TEXT("[F] {0}")), ActionText);
@@ -549,6 +611,11 @@ void AEZCharacter::EquipStarterWeapon()
 
 	CurrentWeapon->AttachToComponent(GetMesh(), FAttachmentTransformRules::SnapToTargetIncludingScale, WeaponSocketName);
 
+	if (HealthComponent)
+	{
+		CurrentWeapon->ApplyHealthModifiers(HealthComponent->GetHealthModifiers());
+	}
+
 	SyncWeaponPresentation();
 }
 
@@ -578,12 +645,28 @@ void AEZCharacter::ReloadWeapon()
 
 void AEZCharacter::StartAim()
 {
-	bIsWeaponAiming = true;
+	if (!CanAimByHealth())
+	{
+		return;
+	}
 
 	if (CurrentWeapon)
 	{
 		CurrentWeapon->StartAim();
+
+		if (!CurrentWeapon->IsAiming())
+		{
+			bIsWeaponAiming = false;
+
+			if (WeaponPresentationComponent)
+			{
+				WeaponPresentationComponent->SetAiming(false);
+			}
+			return;
+		}
 	}
+
+	bIsWeaponAiming = true;
 
 	if (WeaponPresentationComponent)
 	{
@@ -612,4 +695,149 @@ void AEZCharacter::SwitchFireMode()
 	{
 		CurrentWeapon->SwitchFireMode();
 	}
+}
+
+EEZBodyStance AEZCharacter::GetCurrentHealthStance() const
+{
+	if (bIsCrouched)
+	{
+		return EEZBodyStance::Crouching;
+	}
+
+	return EEZBodyStance::Standing;
+}
+
+bool AEZCharacter::CanAimByHealth() const
+{
+	return HealthComponent ? HealthComponent->GetHealthModifiers().bCanAim : true;
+}
+
+bool AEZCharacter::CanInteractByHealth() const
+{
+	return HealthComponent ? HealthComponent->GetHealthModifiers().bCanInteract : true;
+}
+
+void AEZCharacter::SyncHealthState()
+{
+	if (!HealthComponent)
+	{
+		return;
+	}
+
+	const FVector HorizontalVelocity(GetVelocity().X, GetVelocity().Y, 0.0f);
+	const bool bMoving = HorizontalVelocity.SizeSquared() > KINDA_SMALL_NUMBER;
+
+	bool bSprinting = false;
+	if (UEZCharacterMovementComponent* EZMoveComp = GetUEZMovementComponent())
+	{
+		bSprinting = EZMoveComp->IsSprintActive();
+	}
+
+	HealthComponent->SetMovementStateSnapshot(bMoving, bSprinting, GetCurrentHealthStance());
+}
+
+void AEZCharacter::ApplyHealthModifiersToCharacter()
+{
+	if (!HealthComponent)
+	{
+		return;
+	}
+
+	const FEZHealthModifiers Mods = HealthComponent->GetHealthModifiers();
+
+	if (StaminaComponent)
+	{
+		StaminaComponent->SetExternalMaxStaminaMultiplier(Mods.MaxStaminaMultiplier);
+		StaminaComponent->SetExternalDrainMultiplier(Mods.StaminaDrainMultiplier);
+		StaminaComponent->SetExternalRecoveryMultiplier(Mods.StaminaRecoveryMultiplier);
+		StaminaComponent->SetStaminaRecoveryBlocked(Mods.bBlockStaminaRecovery);
+		StaminaComponent->SetFreeSprint(Mods.bFreeSprint);
+	}
+
+	if (InteractComponent)
+	{
+		InteractComponent->SetInteractionBlocked(!Mods.bCanInteract);
+	}
+
+	if (CurrentWeapon)
+	{
+		CurrentWeapon->ApplyHealthModifiers(Mods);
+	}
+
+	if (!Mods.bCanSprint)
+	{
+		if (UEZCharacterMovementComponent* EZMoveComp = GetUEZMovementComponent())
+		{
+			EZMoveComp->SetSprintIntent(false);
+		}
+
+		if (StaminaComponent)
+		{
+			StaminaComponent->SetSprinting(false);
+		}
+	}
+
+	if (!Mods.bCanAim && bIsWeaponAiming)
+	{
+		StopAim();
+	}
+
+	UpdateInteractWidget();
+}
+
+void AEZCharacter::HandleHealthDeath()
+{
+	if (UEZCharacterMovementComponent* EZMoveComp = GetUEZMovementComponent())
+	{
+		EZMoveComp->SetSprintIntent(false);
+	}
+
+	if (StaminaComponent)
+	{
+		StaminaComponent->SetSprinting(false);
+	}
+
+	StopFire();
+	StopAim();
+
+	if (CurrentWeapon)
+	{
+		CurrentWeapon->StopAllWeaponActions();
+	}
+
+	if (InteractComponent)
+	{
+		InteractComponent->SetInteractionBlocked(true);
+	}
+
+	DisableInput(Cast<APlayerController>(GetController()));
+
+	if (GetCharacterMovement())
+	{
+		GetCharacterMovement()->DisableMovement();
+	}
+}
+
+void AEZCharacter::HandleDropWeaponRequested()
+{
+	if (!CurrentWeapon)
+	{
+		return;
+	}
+
+	CurrentWeapon->DropFromOwner();
+	CurrentWeapon = nullptr;
+	bIsWeaponAiming = false;
+
+	SyncWeaponPresentation();
+}
+
+void AEZCharacter::HandleScreamRequested()
+{
+	// Здесь можешь проигрывать звук/анимацию
+}
+
+void AEZCharacter::HandleHealthModifiersChanged(const FEZModifiersChangedEvent& EventData)
+{
+	ApplyHealthModifiersToCharacter();
 }

@@ -12,7 +12,7 @@ enum class EEZReloadType : uint8
 	None UMETA(DisplayName = "None"),
 	MagazineSwap UMETA(DisplayName = "Magazine Swap"),
 	InternalMagazine UMETA(DisplayName = "Internal Magazine"),
-	SingleShell UMETA(DisplayName = "Single Shall"),
+	SingleShell UMETA(DisplayName = "Single Shell"),
 	Cylinder UMETA(DisplayName = "Cylinder"),
 	ChargeBased UMETA(DisplayName = "Charge Based")	
 };

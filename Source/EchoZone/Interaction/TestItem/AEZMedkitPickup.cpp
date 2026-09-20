@@ -3,7 +3,7 @@
 
 #include "AEZMedkitPickup.h"
 #include "Components/StaticMeshComponent.h"
-#include "EchoZone/Character/Component/UEZHealthComponent.h"
+#include "EchoZone/Character/Health/Components/UEZHealthComponent.h"
 
 // Sets default values
 AEZMedkitPickup::AEZMedkitPickup()
@@ -17,24 +17,25 @@ AEZMedkitPickup::AEZMedkitPickup()
 
 void AEZMedkitPickup::Interact_Implementation(AActor* Interactor)
 {
-	if (!Interactor)
+	/*if (!Interactor)
 	{
 		return;
 	}
 
-	UEZHealthComponent* HealthComponent = Interactor->FindComponentByClass<UEZHealthComponent>();
+	EZHealthComponent* HealthComponent = Interactor->FindComponentByClass<UEZHealthComponent>();
 	if (!HealthComponent || HealthComponent->IsFullHealth())
 	{
 		return;
 	}
 
-	HealthComponent->Heal(HealthAmount);
+	//HealthComponent->Heal(HealthAmount);*/
 	Destroy();
 }
 
 bool AEZMedkitPickup::CanInteract_Implementation(AActor* Interactor) const
 {
-	if (!Interactor)
+	return false;
+	/*if (!Interactor)
 	{
 		return false;
 	}
@@ -45,7 +46,7 @@ bool AEZMedkitPickup::CanInteract_Implementation(AActor* Interactor) const
 		return false;
 	}
 
-	return !HealthComponent->IsFullHealth();
+	//return !HealthComponent->IsFullHealth();*/
 }
 
 FText AEZMedkitPickup::GetInteractText_Implementation() const

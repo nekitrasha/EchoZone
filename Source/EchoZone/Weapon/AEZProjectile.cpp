@@ -7,6 +7,10 @@
 #include "Kismet/GameplayStatics.h"
 #include "Engine/World.h"
 
+#include "EchoZone/Character/Health/Components/UEZHealthComponent.h"
+#include "EchoZone/Character/Health/Helpers/EZBodyPartResolver.h"
+#include "EchoZOne/Character/Health/Types/EZDamageContext.h"
+
 AEZProjectile::AEZProjectile()
 {
 	PrimaryActorTick.bCanEverTick = true;
@@ -127,17 +131,40 @@ void AEZProjectile::MoveWithSweep(float DeltaSeconds)
 void AEZProjectile::ProcessHit(const FHitResult& Hit, const FVector& TraceStart, const FVector& TraceEnd)
 {
 	AActor* HitActor = Hit.GetActor();
+
 	if (HitActor)
 	{
-		UGameplayStatics::ApplyPointDamage(
-			HitActor,
-			Damage,
-			CurrentVelocity.GetSafeNormal(),
-			Hit,
-			GetInstigatorController(),
-			this,
-			nullptr
-		);
+		if (UEZHealthComponent* HealthComp = HitActor->FindComponentByClass<UEZHealthComponent>())
+		{
+			FEZDamageContext DamageContext;
+			DamageContext.Damage = Damage;
+			DamageContext.BodyPart = FEZBodyPartResolver::ResolveFromHitResult(Hit);
+			DamageContext.bIsBullet = true;
+			DamageContext.bCanCauseBleeding = true;
+			DamageContext.bCanCauseFracture =
+				DamageContext.BodyPart == EEZBodyPart::LeftArm ||
+				DamageContext.BodyPart == EEZBodyPart::RightArm ||
+				DamageContext.BodyPart == EEZBodyPart::LeftLeg ||
+				DamageContext.BodyPart == EEZBodyPart::RightLeg;
+			DamageContext.bCanCausePainShock = true;
+			DamageContext.DamageCauser = this;
+			DamageContext.InstigatorController = GetInstigatorController();
+			DamageContext.HitResult = Hit;
+
+			HealthComp->ApplyDamage(DamageContext);
+		}
+		else
+		{
+			UGameplayStatics::ApplyPointDamage(
+				HitActor,
+				Damage,
+				CurrentVelocity.GetSafeNormal(),
+				Hit,
+				GetInstigatorController(),
+				this,
+				nullptr
+			);
+		}
 	}
 
 	if (bDrawDebugTrajectory)

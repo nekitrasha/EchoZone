@@ -3,6 +3,8 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Character.h"
 #include "InputActionValue.h"
+#include "EchoZone/Character/Health/Types/EZHealthEventPayloads.h"
+#include "EchoZone/Character/Health/Types/EZHealthTypes.h"
 #include "AEZCharacter.generated.h"
 
 class UCameraComponent;
@@ -12,15 +14,18 @@ class UInputAction;
 class AEZWeaponBase;
 class UEZCharacterMovementComponent;
 class UEZStaminaComponent;
-class UEZIntercatComponent;
+class UEZInteractComponent;
 class UEZHealthComponent;
 class UEZInteractWidget;
 class UEZWeaponPresentationComponent;
 
 UCLASS()
-class ECHOZONE_API AEZCharacter :public ACharacter
+class ECHOZONE_API AEZCharacter : public ACharacter
 {
 	GENERATED_BODY()
+
+public:
+	AEZCharacter(const FObjectInitializer& ObjectInitializer);
 
 public:
 	virtual void BeginPlay() override;
@@ -28,7 +33,7 @@ public:
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 
 	virtual void OnStartCrouch(float HalfHeightAdjust, float ScaledHalfHeightAdjust) override;
-	virtual void OnEndCrouch(float HalfHeightAdjust, float SceltHalfHeightAdjust) override;
+	virtual void OnEndCrouch(float HalfHeightAdjust, float ScaledHalfHeightAdjust) override;
 
 protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
@@ -70,7 +75,7 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
 	UInputAction* SprintAction;
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "input")
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
 	UInputAction* CrouchAction;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
@@ -224,4 +229,24 @@ protected:
 	void EquipStarterWeapon();
 
 	UEZCharacterMovementComponent* GetUEZMovementComponent() const;
+
+protected:
+	UFUNCTION()
+	void HandleHealthDeath();
+
+	UFUNCTION()
+	void HandleDropWeaponRequested();
+
+	UFUNCTION()
+	void HandleScreamRequested();
+
+	UFUNCTION()
+	void HandleHealthModifiersChanged(const FEZModifiersChangedEvent& EventData);
+
+	void SyncHealthState();
+	void ApplyHealthModifiersToCharacter();
+
+	EEZBodyStance GetCurrentHealthStance() const;
+	bool CanAimByHealth() const;
+	bool CanInteractByHealth() const;
 };

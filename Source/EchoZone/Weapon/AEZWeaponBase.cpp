@@ -112,9 +112,9 @@ void AEZWeaponBase::SwitchFireMode()
 	}
 
 	const int32 CurrentIndex = WeaponData->SupportedFireModes.IndexOfByKey(CurrentFireMode);
-	const int32 NextInddex = (CurrentIndex == INDEX_NONE) ? 0 : (CurrentIndex + 1) % WeaponData->SupportedFireModes.Num();
+	const int32 NextIndex = (CurrentIndex == INDEX_NONE) ? 0 : (CurrentIndex + 1) % WeaponData->SupportedFireModes.Num();
 
-	CurrentFireMode = WeaponData->SupportedFireModes[NextInddex];
+	CurrentFireMode = WeaponData->SupportedFireModes[NextIndex];
 	BurstShotRemaining = 0;
 
 	OnFireModeChangedEvent.Broadcast(CurrentFireMode);
@@ -168,6 +168,11 @@ bool AEZWeaponBase::CanFire() const
 		return false;
 	}
 
+	if (!CanEquipByHealth())
+	{
+		return false;
+	}
+
 	if (CurrentFireMode == EEZFireMode::Safe)
 	{
 		return false;
@@ -184,6 +189,11 @@ bool AEZWeaponBase::CanFire() const
 
 bool AEZWeaponBase::CanReload() const
 {
+	if (!CanEquipByHealth())
+	{
+		return false;
+	}
+
 	if (bIsReloading)
 	{
 		return false;
@@ -216,7 +226,7 @@ void AEZWeaponBase::StartFire()
 		return;
 	}
 
-	if (!CanFire)
+	if (!CanFire())
 	{
 		if (!HasRoundChambered())
 		{
@@ -468,7 +478,7 @@ void AEZWeaponBase::Reload()
 
 void AEZWeaponBase::CancelReload()
 {
-	if (!IsReloading)
+	if (!IsReloading())
 	{
 		return;
 	}
@@ -515,6 +525,11 @@ void AEZWeaponBase::FinishReload()
 
 void AEZWeaponBase::StartAim()
 {
+	if (!CanAimByHealth())
+	{
+		return;
+	}
+
 	bIsAiming = true;
 }
 
@@ -550,7 +565,7 @@ void AEZWeaponBase::PlayEmptyClick()
 	OnEmptyClickEvent.Broadcast();
 	BP_OnEmptyClick();
 
-	GetWorldTimerManager().SetTimer(EmptyClickCooldownHandle, [this]() {bWasEmptyClick = false; }, 0.15f, false);
+	GetWorldTimerManager().SetTimer(EmptyClickCooldownHandle, [this]() { bWasEmptyClick = false; }, 0.15f, false);
 }
 
 bool AEZWeaponBase::IsTacticalReload() const
@@ -592,8 +607,10 @@ void AEZWeaponBase::UpdateADS(float DeltaSeconds)
 	}
 
 	const float Target = bIsAiming ? 1.0f : 0.0f;
-	const float Speed = bIsAiming ? (WeaponData->ADS.EnterTime > 0.0f ? 1.0f / WeaponData->ADS.EnterTime : 999.0f) : (WeaponData->ADS.ExitTime > 0.0f ? 1.0f / WeaponData->ADS.ExitTime : 999.0f);
-	
+	const float Speed = bIsAiming
+		? (WeaponData->ADS.EnterTime > 0.0f ? 1.0f / WeaponData->ADS.EnterTime : 999.0f)
+		: (WeaponData->ADS.ExitTime > 0.0f ? 1.0f / WeaponData->ADS.ExitTime : 999.0f);
+
 	CurrentAimAlpha = FMath::FInterpTo(CurrentAimAlpha, Target, DeltaSeconds, Speed);
 }
 
@@ -704,6 +721,10 @@ float AEZWeaponBase::GetMovementSpreadMultiplier() const
 	{
 		Multiplier *= WeaponData->Spread.ADSMultiplier;
 	}
+	else
+	{
+		Multiplier *= CachedHealthModifiers.HipFireSpreadMultiplier;
+	}
 
 	return Multiplier;
 }
@@ -718,7 +739,10 @@ float AEZWeaponBase::GetEffectiveBaseSpread() const
 	const float Ergo = GetErgonomicNormalized();
 	const float ErgoSpreadMultiplier = FMath::Lerp(1.25f, 0.8f, Ergo);
 
-	return WeaponData->Spread.BaseSpreadAngle * ErgoSpreadMultiplier * GetMovementSpreadMultiplier();
+	return WeaponData->Spread.BaseSpreadAngle
+		* ErgoSpreadMultiplier
+		* GetMovementSpreadMultiplier()
+		* CachedHealthModifiers.WeaponSwayMultiplier;
 }
 
 float AEZWeaponBase::GetEffectiveVerticalRecoil() const
@@ -729,7 +753,9 @@ float AEZWeaponBase::GetEffectiveVerticalRecoil() const
 	}
 
 	const float Ergo = GetErgonomicNormalized();
-	return WeaponData->Recoil.VerticalRecoil * FMath::Lerp(1.25f, 0.75f, Ergo);
+	return WeaponData->Recoil.VerticalRecoil
+		* FMath::Lerp(1.25f, 0.75f, Ergo)
+		* CachedHealthModifiers.RecoilMultiplier;
 }
 
 float AEZWeaponBase::GetEffectiveHorizontalRecoil() const
@@ -740,7 +766,9 @@ float AEZWeaponBase::GetEffectiveHorizontalRecoil() const
 	}
 
 	const float Ergo = GetErgonomicNormalized();
-	return WeaponData->Recoil.HorizontalRecoil * FMath::Lerp(1.25f, 0.75f, Ergo);
+	return WeaponData->Recoil.HorizontalRecoil
+		* FMath::Lerp(1.25f, 0.75f, Ergo)
+		* CachedHealthModifiers.RecoilMultiplier;
 }
 
 bool AEZWeaponBase::IsOwnerSprinting() const
@@ -774,9 +802,65 @@ float AEZWeaponBase::GetReloadDuration() const
 {
 	if (!InsertedMagazine.IsValid() || !InsertedMagazine.MagazineData)
 	{
-		return 2.2f;
+		return 2.2f * CachedHealthModifiers.ReloadTimeMultiplier;
 	}
 
 	const bool bEmptyGun = !bRoundChambered && InsertedMagazine.CurrentAmmo <= 0;
-	return bEmptyGun ? InsertedMagazine.MagazineData->EmpryReloadTime : InsertedMagazine.MagazineData->ReloadTime;
+	const float BaseReloadTime = bEmptyGun ? InsertedMagazine.MagazineData->EmptyReloadTime : InsertedMagazine.MagazineData->ReloadTime;
+	return BaseReloadTime * CachedHealthModifiers.ReloadTimeMultiplier;
+}
+
+void AEZWeaponBase::ApplyHealthModifiers(const FEZHealthModifiers& NewModifiers)
+{
+	CachedHealthModifiers = NewModifiers;
+
+	if (!CachedHealthModifiers.bCanAim && bIsAiming)
+	{
+		StopAim();
+	}
+
+	if (!CanEquipByHealth())
+	{
+		StopAllWeaponActions();
+	}
+}
+
+bool AEZWeaponBase::CanEquipByHealth() const
+{
+	if (CachedHealthModifiers.bPistolOnly && GetWeaponType() != EEZWeaponType::Pistol)
+	{
+		return false;
+	}
+
+	if (!CachedHealthModifiers.bCanEquipTwoHandedWeapon && GetWeaponType() != EEZWeaponType::Pistol)
+	{
+		return false;
+	}
+
+	return true;
+}
+
+bool AEZWeaponBase::CanAimByHealth() const
+{
+	return CachedHealthModifiers.bCanAim;
+}
+
+void AEZWeaponBase::StopAllWeaponActions()
+{
+	StopFire();
+	CancelReload();
+	StopAim();
+}
+
+void AEZWeaponBase::DropFromOwner()
+{
+	StopAllWeaponActions();
+	DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);
+	SetOwner(nullptr);
+
+	if (WeaponMesh)
+	{
+		WeaponMesh->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
+		WeaponMesh->SetSimulatePhysics(true);
+	}
 }

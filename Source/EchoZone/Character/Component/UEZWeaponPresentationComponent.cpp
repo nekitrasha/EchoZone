@@ -37,7 +37,7 @@ void UEZWeaponPresentationComponent::TickComponent(float DeltaTime, ELevelTick T
 	UpdateAimAlpha(DeltaTime);
 	UpdateVisualRecoil(DeltaTime);
 	UpdateWeaponSway(DeltaTime);
-	UpdateADSAligment(DeltaTime);
+	UpdateADSAlignment(DeltaTime);
 	ApplyPresentationOffset();
 }
 
@@ -112,7 +112,7 @@ void UEZWeaponPresentationComponent::UpdateVisualRecoil(float DeltaTime)
 	TargetVisualLocationOffset = FMath::VInterpTo(TargetVisualLocationOffset, FVector::ZeroVector, DeltaTime, RecoverySpeed);
 	TargetVisualRotationOffset = FMath::RInterpTo(TargetVisualRotationOffset, FRotator::ZeroRotator, DeltaTime, RecoverySpeed);
 
-	VisualLoactionOffset = FMath::VInterpTo(VisualLoactionOffset, TargetVisualLocationOffset, DeltaTime, RecoverySpeed * 1.35f);
+	VisualLocationOffset = FMath::VInterpTo(VisualLocationOffset, TargetVisualLocationOffset, DeltaTime, RecoverySpeed * 1.35f);
 	VisualRotationOffset = FMath::RInterpTo(VisualRotationOffset, TargetVisualRotationOffset, DeltaTime, RecoverySpeed * 1.35f);
 }
 
@@ -149,7 +149,7 @@ void UEZWeaponPresentationComponent::UpdateWeaponSway(float DeltaTime)
 	SwayRotationOffset = FMath::RInterpTo(SwayRotationOffset, TargetRot, DeltaTime, Sway.InterpSpeed);
 }
 
-void UEZWeaponPresentationComponent::UpdateADSAligment(float DeltaTime)
+void UEZWeaponPresentationComponent::UpdateADSAlignment(float DeltaTime)
 {
 	const UEZWeaponDataAsset* WeaponData = GetWeaponData();
 	if (!WeaponData)
@@ -184,7 +184,7 @@ void UEZWeaponPresentationComponent::ApplyPresentationOffset()
 		return;
 	}
 
-	const FVector FinalLocation = ADSLocationOffset + SwayLocationOffset + VisualLoactionOffset;
+	const FVector FinalLocation = ADSLocationOffset + SwayLocationOffset + VisualLocationOffset;
 	const FRotator FinalRotation = UKismetMathLibrary::ComposeRotators(ADSRotationOffset, UKismetMathLibrary::ComposeRotators(SwayRotationOffset, VisualRotationOffset));
 
 	VisualRoot->SetRelativeLocation(FinalLocation);
@@ -194,7 +194,7 @@ void UEZWeaponPresentationComponent::ApplyPresentationOffset()
 void UEZWeaponPresentationComponent::ResetPresentation()
 {
 	CurrentAimAlpha = 0.0f;
-	VisualLoactionOffset = FVector::ZeroVector;
+	VisualLocationOffset = FVector::ZeroVector;
 	VisualRotationOffset = FRotator::ZeroRotator;
 	TargetVisualLocationOffset = FVector::ZeroVector;
 	TargetVisualRotationOffset = FRotator::ZeroRotator;
@@ -221,7 +221,7 @@ void UEZWeaponPresentationComponent::BindToWeapon(AEZWeaponBase* InWeapon)
 
 void UEZWeaponPresentationComponent::UnbindFromWeapon(AEZWeaponBase* InWeapon)
 {
-	if (InWeapon)
+	if (InWeapon == nullptr)
 	{
 		return;
 	}
