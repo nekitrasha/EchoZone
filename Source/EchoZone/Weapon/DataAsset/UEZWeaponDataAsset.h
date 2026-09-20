@@ -107,22 +107,19 @@ struct FEZWeaponADSSettings
 	GENERATED_BODY()
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "ADS")
+	float AimFOV = 70.0f;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "ADS")
 	float EnterTime = 0.18f;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "ADS")
 	float ExitTime = 0.14f;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "ADS")
-	float AimFOV = 70.0f;
-
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "ADS")
 	FVector ADSOffset = FVector::ZeroVector;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "ADS")
 	FRotator ADSRotationOffset = FRotator::ZeroRotator;
-
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "ADS")
-	FName ADSSocketName = TEXT("ADS");
 };
 
 UCLASS(BlueprintType)
@@ -153,10 +150,19 @@ public:
 	EEZFireMode DefaultFireMode = EEZFireMode::SemiAuto;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weapon")
+	int32 BurstCount = 3;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weapon")
 	float FireRateRPM = 600.0f;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weapon")
 	bool bCanFireWhileSprinting = false;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weapon")
+	bool bAllowReloadCancel = true;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weapon")
+	bool bSupportsTacticalReload = true;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weapon")
 	float Ergonomics = 50.0f;
@@ -169,15 +175,6 @@ public:
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weapon")
 	TObjectPtr<UEZMagazineDataAsset> DefaultMagazine = nullptr;
-
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weapon")
-	int32 BurstCount = 3;
-
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weapon")
-	bool bAllowReloadCancel = true;
-
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weapon")
-	bool bSupportsTacticalReload = true;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weapon")
 	FEZWeaponSpreadSettings Spread;

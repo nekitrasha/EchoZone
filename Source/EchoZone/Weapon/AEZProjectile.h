@@ -54,6 +54,7 @@ protected:
 	bool bDrawDebugTrajectory = false;
 
 public:
+	UFUNCTION(BlueprintCallable)
 	void InitProjectile(const UEZAmmoDataAsset* AmmoData, const FVector& ShotDirection);
 
 protected:

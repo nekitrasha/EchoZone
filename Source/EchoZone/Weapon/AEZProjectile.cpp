@@ -1,5 +1,5 @@
 #include "AEZProjectile.h"
-#include "EchoZone/Weapon/DataAsset/UEZAmmoDataAsset.h"
+#include "DataAsset/UEZAmmoDataAsset.h"
 
 #include "Components/SphereComponent.h"
 #include "Components/StaticMeshComponent.h"
@@ -26,6 +26,11 @@ AEZProjectile::AEZProjectile()
 void AEZProjectile::BeginPlay()
 {
 	Super::BeginPlay();
+
+	if (AActor* OwnerActor = GetOwner())
+	{
+		CollisionComponent->IgnoreActorWhenMoving(OwnerActor, true);
+	}
 }
 
 void AEZProjectile::Tick(float DeltaSeconds)
