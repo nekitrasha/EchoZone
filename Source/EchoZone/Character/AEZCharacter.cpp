@@ -7,6 +7,7 @@
 #include "EchoZone/Interaction/UEZInteractWidget.h"
 #include "EchoZone/Weapon/AEZWeaponBase.h"
 #include "EchoZone/Weapon/DataAsset/UEZWeaponDataAsset.h"
+#include "EchoZone/UI/UEZHUDWidget.h"
 
 #include "Camera/CameraComponent.h"
 #include "Components/SceneComponent.h"
@@ -109,6 +110,19 @@ void AEZCharacter::BeginPlay()
 
 	SyncHealthState();
 	ApplyHealthModifiersToCharacter();
+
+	if (HUDWidgetClass)
+	{
+		if (APlayerController* PlayerController = Cast<APlayerController>(GetController()))
+		{
+			HUDWidget = CreateWidget<UEZHUDWidget>(PlayerController, HUDWidgetClass);
+			if (HUDWidget)
+			{
+				HUDWidget->AddToViewport();
+				HUDWidget->SetOwnerCharacter(this);
+			}
+		}
+	}
 }
 
 void AEZCharacter::Tick(float DeltaTime)

@@ -1124,3 +1124,29 @@ void UEZHealthComponent::BroadcastNeedChanged(EEZNeedType NeedType, float OldVal
 	Event.NewValue = NewValue;
 	OnNeedChanged.Broadcast(Event);
 }
+
+float UEZHealthComponent::GetOverallHealthCurrent() const
+{
+	return HeadState.CurrentHealth
+		+ TorsoState.CurrentHealth
+		+ LeftArmState.CurrentHealth
+		+ RightArmState.CurrentHealth
+		+ LeftLegState.CurrentHealth
+		+ RightLegState.CurrentHealth;
+}
+
+float UEZHealthComponent::GetOverallHealthMax() const
+{
+	return HeadState.MaxHealth
+		+ TorsoState.MaxHealth
+		+ LeftArmState.MaxHealth
+		+ RightArmState.MaxHealth
+		+ LeftLegState.MaxHealth
+		+ RightLegState.MaxHealth;
+}
+
+float UEZHealthComponent::GetOverallHealthNormalized() const
+{
+	const float MaxValue = GetOverallHealthMax();
+	return MaxValue > 0.0f ? GetOverallHealthCurrent() / MaxValue : 0.0f;
+}

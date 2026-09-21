@@ -228,6 +228,15 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Health")
 	float GetBodyTemperature() const { return BodyTemperature; }
 
+	UFUNCTION(BlueprintPure, Category = "Health")
+	float GetOverallHealthCurrent() const;
+
+	UFUNCTION(BlueprintPure, Category = "Health")
+	float GetOverallHealthMax() const;
+
+	UFUNCTION(BlueprintPure, Category = "Health")
+	float GetOverallHealthNormalized() const;
+
 protected:
 	FEZBodyPartState& GetBodyPartStateRef(EEZBodyPart BodyPart);
 	const FEZBodyPartState& GetBodyPartStateConstRef(EEZBodyPart BodyPart) const;

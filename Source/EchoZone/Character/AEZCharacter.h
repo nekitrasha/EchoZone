@@ -18,6 +18,7 @@ class UEZInteractComponent;
 class UEZHealthComponent;
 class UEZInteractWidget;
 class UEZWeaponPresentationComponent;
+class UEZHUDWidget;
 
 UCLASS()
 class ECHOZONE_API AEZCharacter : public ACharacter
@@ -34,6 +35,16 @@ public:
 
 	virtual void OnStartCrouch(float HalfHeightAdjust, float ScaledHalfHeightAdjust) override;
 	virtual void OnEndCrouch(float HalfHeightAdjust, float ScaledHalfHeightAdjust) override;
+
+public:
+	UFUNCTION(BlueprintPure, Category = "Character")
+	UEZHealthComponent* GetHealthComponent() const { return HealthComponent; }
+
+	UFUNCTION(BlueprintPure, Category = "Character")
+	UEZStaminaComponent* GetStaminaComponent() const { return StaminaComponent; }
+
+	UFUNCTION(BlueprintPure, Category = "Character")
+	AEZWeaponBase* GetCurrentWeapon() const { return CurrentWeapon; }
 
 protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
@@ -60,8 +71,14 @@ protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "UI")
 	TSubclassOf<UEZInteractWidget> InteractWidgetClass;
 
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "UI")
+	TSubclassOf<UEZHUDWidget> HUDWidgetClass;
+
 	UPROPERTY()
 	UEZInteractWidget* InteractWidget;
+
+	UPROPERTY()
+	UEZHUDWidget* HUDWidget;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
 	UInputMappingContext* DefaultMappingContext;
