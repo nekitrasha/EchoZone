@@ -1,0 +1,2 @@
+#include "EZStorageRuleType.h"
+
