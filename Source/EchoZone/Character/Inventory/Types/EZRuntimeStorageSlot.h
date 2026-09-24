@@ -12,7 +12,7 @@ struct FEZRuntimeStorageSlot
 	GENERATED_BODY()
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Storage")
-	EZStorageRuleType Rule = EZStorageRuleType::AnyItem;
+	EEZStorageRuleType Rule = EEZStorageRuleType::AnyItem;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Storage")
 	bool bEnabled = true;

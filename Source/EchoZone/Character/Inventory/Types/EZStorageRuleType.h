@@ -4,7 +4,7 @@
 #include "EZStorageRuleType.generated.h"
 
 UENUM(BlueprintType)
-enum class EZStorageRuleType : uint8
+enum class EEZStorageRuleType : uint8
 {
 	None,
 
